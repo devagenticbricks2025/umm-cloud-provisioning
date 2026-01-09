@@ -1,0 +1,267 @@
+{
+  "catalog_item": {
+    "name": "Request Azure Cloud Resource",
+    "short_description": "Request pre-approved Azure cloud resources (VM, Storage, Databricks)",
+    "description": "Use this form to request Azure cloud resources. Based on your selection, the appropriate fields will be displayed.\n\nSupported resource types:\n- Virtual Machine: Linux or Windows VMs\n- Storage Account: Blob storage with various replication options\n- Databricks Workspace: Analytics platform for data engineering\n\nAll resources are automatically provisioned via Infrastructure as Code and tagged for cost tracking.",
+    "catalogs": ["Service Catalog"],
+    "category": "Cloud Services",
+    "icon": "cloud",
+    "active": true,
+    "availability": "Desktop and Mobile",
+    "workflow": "Cloud Resource Approval"
+  },
+
+  "variables": [
+    {
+      "order": 100,
+      "name": "resource_type",
+      "label": "Resource Type",
+      "type": "Select Box",
+      "mandatory": true,
+      "help_text": "Select the type of Azure resource you need",
+      "choices": [
+        { "value": "vm", "label": "Virtual Machine" },
+        { "value": "storage", "label": "Storage Account" },
+        { "value": "databricks", "label": "Databricks Workspace" }
+      ]
+    },
+    {
+      "order": 200,
+      "name": "resource_name",
+      "label": "Resource Name",
+      "type": "Single Line Text",
+      "mandatory": true,
+      "max_length": 24,
+      "help_text": "Enter a name for your resource (lowercase, alphanumeric, 3-24 characters). For Storage Accounts, this must be globally unique.",
+      "validation": "^[a-z0-9]{3,24}$"
+    },
+    {
+      "order": 300,
+      "name": "environment",
+      "label": "Environment",
+      "type": "Select Box",
+      "mandatory": true,
+      "default_value": "dev",
+      "help_text": "Select the target environment",
+      "choices": [
+        { "value": "dev", "label": "Development" },
+        { "value": "staging", "label": "Staging" },
+        { "value": "prod", "label": "Production" }
+      ]
+    },
+    {
+      "order": 400,
+      "name": "cost_center",
+      "label": "Cost Center",
+      "type": "Single Line Text",
+      "mandatory": true,
+      "help_text": "Enter the cost center code for billing (e.g., CC-12345)"
+    },
+    {
+      "order": 500,
+      "name": "justification",
+      "label": "Business Justification",
+      "type": "Multi Line Text",
+      "mandatory": true,
+      "rows": 4,
+      "help_text": "Explain why you need this resource and how it will be used"
+    },
+    {
+      "order": 600,
+      "name": "vm_size",
+      "label": "VM Size",
+      "type": "Select Box",
+      "mandatory": false,
+      "default_value": "Standard_D2s_v3",
+      "help_text": "Select the size of the virtual machine",
+      "visible_condition": "resource_type == 'vm'",
+      "choices": [
+        { "value": "Standard_D2s_v3", "label": "Standard_D2s_v3 (2 vCPU, 8GB RAM)" },
+        { "value": "Standard_D4s_v3", "label": "Standard_D4s_v3 (4 vCPU, 16GB RAM)" },
+        { "value": "Standard_D8s_v3", "label": "Standard_D8s_v3 (8 vCPU, 32GB RAM)" }
+      ]
+    },
+    {
+      "order": 700,
+      "name": "os_type",
+      "label": "Operating System",
+      "type": "Select Box",
+      "mandatory": false,
+      "default_value": "ubuntu",
+      "help_text": "Select the operating system for the VM",
+      "visible_condition": "resource_type == 'vm'",
+      "choices": [
+        { "value": "ubuntu", "label": "Ubuntu 22.04 LTS" },
+        { "value": "windows", "label": "Windows Server 2022" },
+        { "value": "rhel", "label": "Red Hat Enterprise Linux 8" }
+      ]
+    },
+    {
+      "order": 800,
+      "name": "storage_tier",
+      "label": "Storage Tier",
+      "type": "Select Box",
+      "mandatory": false,
+      "default_value": "Standard",
+      "help_text": "Select the performance tier for the storage account",
+      "visible_condition": "resource_type == 'storage'",
+      "choices": [
+        { "value": "Standard", "label": "Standard (HDD - Cost effective)" },
+        { "value": "Premium", "label": "Premium (SSD - High performance)" }
+      ]
+    },
+    {
+      "order": 900,
+      "name": "replication",
+      "label": "Replication",
+      "type": "Select Box",
+      "mandatory": false,
+      "default_value": "LRS",
+      "help_text": "Select the data replication strategy",
+      "visible_condition": "resource_type == 'storage'",
+      "choices": [
+        { "value": "LRS", "label": "LRS - Locally Redundant (3 copies in one datacenter)" },
+        { "value": "ZRS", "label": "ZRS - Zone Redundant (3 copies across availability zones)" },
+        { "value": "GRS", "label": "GRS - Geo Redundant (6 copies across two regions)" }
+      ]
+    },
+    {
+      "order": 1000,
+      "name": "pricing_tier",
+      "label": "Pricing Tier",
+      "type": "Select Box",
+      "mandatory": false,
+      "default_value": "standard",
+      "help_text": "Select the Databricks pricing tier",
+      "visible_condition": "resource_type == 'databricks'",
+      "choices": [
+        { "value": "standard", "label": "Standard (Collaborative notebooks, jobs)" },
+        { "value": "premium", "label": "Premium (RBAC, audit logs, SSO)" }
+      ]
+    },
+    {
+      "order": 1100,
+      "name": "data_classification",
+      "label": "Data Classification",
+      "type": "Select Box",
+      "mandatory": false,
+      "default_value": "internal",
+      "help_text": "Select the highest data classification level that will be processed. PHI requires Premium tier.",
+      "visible_condition": "resource_type == 'databricks'",
+      "choices": [
+        { "value": "public", "label": "Public - No restrictions" },
+        { "value": "internal", "label": "Internal - Business use only" },
+        { "value": "confidential", "label": "Confidential - Restricted access" },
+        { "value": "phi", "label": "PHI - Protected Health Information (HIPAA)" }
+      ]
+    }
+  ],
+
+  "ui_policies": [
+    {
+      "name": "Show VM Fields",
+      "short_description": "Show VM-specific fields when Virtual Machine is selected",
+      "table": "sc_req_item",
+      "active": true,
+      "on_load": true,
+      "reverse_if_false": true,
+      "conditions": [
+        { "field": "resource_type", "operator": "is", "value": "vm" }
+      ],
+      "actions": [
+        { "field": "vm_size", "visible": true, "mandatory": true },
+        { "field": "os_type", "visible": true, "mandatory": true },
+        { "field": "storage_tier", "visible": false, "mandatory": false },
+        { "field": "replication", "visible": false, "mandatory": false },
+        { "field": "pricing_tier", "visible": false, "mandatory": false },
+        { "field": "data_classification", "visible": false, "mandatory": false }
+      ]
+    },
+    {
+      "name": "Show Storage Fields",
+      "short_description": "Show Storage-specific fields when Storage Account is selected",
+      "table": "sc_req_item",
+      "active": true,
+      "on_load": true,
+      "reverse_if_false": true,
+      "conditions": [
+        { "field": "resource_type", "operator": "is", "value": "storage" }
+      ],
+      "actions": [
+        { "field": "vm_size", "visible": false, "mandatory": false },
+        { "field": "os_type", "visible": false, "mandatory": false },
+        { "field": "storage_tier", "visible": true, "mandatory": true },
+        { "field": "replication", "visible": true, "mandatory": true },
+        { "field": "pricing_tier", "visible": false, "mandatory": false },
+        { "field": "data_classification", "visible": false, "mandatory": false }
+      ]
+    },
+    {
+      "name": "Show Databricks Fields",
+      "short_description": "Show Databricks-specific fields when Databricks is selected",
+      "table": "sc_req_item",
+      "active": true,
+      "on_load": true,
+      "reverse_if_false": true,
+      "conditions": [
+        { "field": "resource_type", "operator": "is", "value": "databricks" }
+      ],
+      "actions": [
+        { "field": "vm_size", "visible": false, "mandatory": false },
+        { "field": "os_type", "visible": false, "mandatory": false },
+        { "field": "storage_tier", "visible": false, "mandatory": false },
+        { "field": "replication", "visible": false, "mandatory": false },
+        { "field": "pricing_tier", "visible": true, "mandatory": true },
+        { "field": "data_classification", "visible": true, "mandatory": true }
+      ]
+    },
+    {
+      "name": "PHI Requires Premium",
+      "short_description": "Automatically set Premium tier when PHI is selected",
+      "table": "sc_req_item",
+      "active": true,
+      "on_load": true,
+      "reverse_if_false": false,
+      "conditions": [
+        { "field": "data_classification", "operator": "is", "value": "phi" }
+      ],
+      "actions": [
+        { "field": "pricing_tier", "value": "premium", "mandatory": true }
+      ]
+    }
+  ],
+
+  "system_properties": [
+    {
+      "name": "x_umm_cloud.github_pat",
+      "type": "password",
+      "description": "GitHub Personal Access Token for triggering workflows"
+    },
+    {
+      "name": "x_umm_cloud.github_owner",
+      "type": "string",
+      "default": "your-org",
+      "description": "GitHub organization or username"
+    },
+    {
+      "name": "x_umm_cloud.github_repo",
+      "type": "string",
+      "default": "umm-cloud-provisioning",
+      "description": "GitHub repository name"
+    }
+  ],
+
+  "approval_workflow": {
+    "name": "Cloud Resource Approval",
+    "description": "Manager approval workflow for cloud resource requests",
+    "stages": [
+      {
+        "name": "Manager Approval",
+        "approver": "Requested For's Manager",
+        "duration": "3 days"
+      }
+    ],
+    "on_approval": "Trigger GitHub Actions via Business Rule",
+    "on_rejection": "Close request as Incomplete"
+  }
+}

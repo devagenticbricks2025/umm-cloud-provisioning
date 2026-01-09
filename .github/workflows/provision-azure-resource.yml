@@ -1,0 +1,472 @@
+# .github/workflows/provision-azure-resource.yml
+# Unified workflow that handles all Azure resource types from ServiceNow
+name: Provision Azure Resource
+
+on:
+  # Triggered by ServiceNow webhook
+  repository_dispatch:
+    types: [provision-azure-resource]
+
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      ticket_number:
+        description: 'ServiceNow Ticket Number'
+        required: true
+        type: string
+      resource_type:
+        description: 'Resource Type'
+        required: true
+        type: choice
+        options:
+          - vm
+          - storage
+          - databricks
+      resource_name:
+        description: 'Resource Name'
+        required: true
+        type: string
+      environment:
+        description: 'Environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      cost_center:
+        description: 'Cost Center'
+        required: true
+        type: string
+      vm_size:
+        description: 'VM Size (for VM only)'
+        required: false
+        default: 'Standard_D2s_v3'
+        type: string
+      os_type:
+        description: 'OS Type (for VM only)'
+        required: false
+        default: 'ubuntu'
+        type: choice
+        options:
+          - ubuntu
+          - windows
+          - rhel
+      storage_tier:
+        description: 'Storage Tier (for Storage only)'
+        required: false
+        default: 'Standard'
+        type: choice
+        options:
+          - Standard
+          - Premium
+      replication:
+        description: 'Replication (for Storage only)'
+        required: false
+        default: 'LRS'
+        type: choice
+        options:
+          - LRS
+          - GRS
+          - ZRS
+      pricing_tier:
+        description: 'Pricing Tier (for Databricks only)'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - premium
+      data_classification:
+        description: 'Data Classification (for Databricks only)'
+        required: false
+        default: 'internal'
+        type: choice
+        options:
+          - public
+          - internal
+          - confidential
+          - phi
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  # ============================================
+  # JOB 1: Parse and Validate Request
+  # ============================================
+  parse-request:
+    name: Parse Request
+    runs-on: ubuntu-latest
+    outputs:
+      ticket_number: ${{ steps.parse.outputs.ticket_number }}
+      resource_type: ${{ steps.parse.outputs.resource_type }}
+      resource_name: ${{ steps.parse.outputs.resource_name }}
+      environment: ${{ steps.parse.outputs.environment }}
+      cost_center: ${{ steps.parse.outputs.cost_center }}
+      requested_by: ${{ steps.parse.outputs.requested_by }}
+      vm_size: ${{ steps.parse.outputs.vm_size }}
+      os_type: ${{ steps.parse.outputs.os_type }}
+      storage_tier: ${{ steps.parse.outputs.storage_tier }}
+      replication: ${{ steps.parse.outputs.replication }}
+      pricing_tier: ${{ steps.parse.outputs.pricing_tier }}
+      data_classification: ${{ steps.parse.outputs.data_classification }}
+
+    steps:
+      - name: Parse Request Data
+        id: parse
+        run: |
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "Source: ServiceNow Webhook"
+            PAYLOAD='${{ toJson(github.event.client_payload) }}'
+
+            echo "ticket_number=$(echo $PAYLOAD | jq -r '.ticket_number')" >> $GITHUB_OUTPUT
+            echo "resource_type=$(echo $PAYLOAD | jq -r '.resource_type')" >> $GITHUB_OUTPUT
+            echo "resource_name=$(echo $PAYLOAD | jq -r '.resource_name')" >> $GITHUB_OUTPUT
+            echo "environment=$(echo $PAYLOAD | jq -r '.environment')" >> $GITHUB_OUTPUT
+            echo "cost_center=$(echo $PAYLOAD | jq -r '.cost_center')" >> $GITHUB_OUTPUT
+            echo "requested_by=$(echo $PAYLOAD | jq -r '.requested_by // \"unknown\"')" >> $GITHUB_OUTPUT
+            echo "vm_size=$(echo $PAYLOAD | jq -r '.vm_size // \"Standard_D2s_v3\"')" >> $GITHUB_OUTPUT
+            echo "os_type=$(echo $PAYLOAD | jq -r '.os_type // \"ubuntu\"')" >> $GITHUB_OUTPUT
+            echo "storage_tier=$(echo $PAYLOAD | jq -r '.storage_tier // \"Standard\"')" >> $GITHUB_OUTPUT
+            echo "replication=$(echo $PAYLOAD | jq -r '.replication // \"LRS\"')" >> $GITHUB_OUTPUT
+            echo "pricing_tier=$(echo $PAYLOAD | jq -r '.pricing_tier // \"standard\"')" >> $GITHUB_OUTPUT
+            echo "data_classification=$(echo $PAYLOAD | jq -r '.data_classification // \"internal\"')" >> $GITHUB_OUTPUT
+          else
+            echo "Source: Manual Workflow Dispatch"
+            echo "ticket_number=${{ inputs.ticket_number }}" >> $GITHUB_OUTPUT
+            echo "resource_type=${{ inputs.resource_type }}" >> $GITHUB_OUTPUT
+            echo "resource_name=${{ inputs.resource_name }}" >> $GITHUB_OUTPUT
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "cost_center=${{ inputs.cost_center }}" >> $GITHUB_OUTPUT
+            echo "requested_by=manual" >> $GITHUB_OUTPUT
+            echo "vm_size=${{ inputs.vm_size }}" >> $GITHUB_OUTPUT
+            echo "os_type=${{ inputs.os_type }}" >> $GITHUB_OUTPUT
+            echo "storage_tier=${{ inputs.storage_tier }}" >> $GITHUB_OUTPUT
+            echo "replication=${{ inputs.replication }}" >> $GITHUB_OUTPUT
+            echo "pricing_tier=${{ inputs.pricing_tier }}" >> $GITHUB_OUTPUT
+            echo "data_classification=${{ inputs.data_classification }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display Request Summary
+        run: |
+          echo "========================================"
+          echo "         REQUEST SUMMARY                "
+          echo "========================================"
+          echo "Ticket:        ${{ steps.parse.outputs.ticket_number }}"
+          echo "Resource Type: ${{ steps.parse.outputs.resource_type }}"
+          echo "Resource Name: ${{ steps.parse.outputs.resource_name }}"
+          echo "Environment:   ${{ steps.parse.outputs.environment }}"
+          echo "Cost Center:   ${{ steps.parse.outputs.cost_center }}"
+          echo "Requested By:  ${{ steps.parse.outputs.requested_by }}"
+          echo "========================================"
+
+      - name: Validate Request
+        run: |
+          RESOURCE_NAME="${{ steps.parse.outputs.resource_name }}"
+          RESOURCE_TYPE="${{ steps.parse.outputs.resource_type }}"
+
+          if [ -z "$RESOURCE_NAME" ]; then
+            echo "ERROR: Resource name is required"
+            exit 1
+          fi
+
+          if [ -z "$RESOURCE_TYPE" ]; then
+            echo "ERROR: Resource type is required"
+            exit 1
+          fi
+
+          # Validate storage name format (lowercase, alphanumeric, 3-24 chars)
+          if [ "$RESOURCE_TYPE" == "storage" ]; then
+            if ! echo "$RESOURCE_NAME" | grep -qE '^[a-z0-9]{3,24}$'; then
+              echo "ERROR: Storage account name must be lowercase alphanumeric, 3-24 characters"
+              exit 1
+            fi
+          fi
+
+          echo "Validation passed!"
+
+  # ============================================
+  # JOB 2: Update ServiceNow - Started
+  # ============================================
+  notify-started:
+    name: Notify Started
+    needs: parse-request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update ServiceNow - Provisioning Started
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.SERVICENOW_INSTANCE }}" ]; then
+            curl -s -X PATCH \
+              -u "${{ secrets.SERVICENOW_USER }}:${{ secrets.SERVICENOW_PASSWORD }}" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json" \
+              -d '{
+                "work_notes": "GitHub Actions provisioning started for ${{ needs.parse-request.outputs.resource_type }}: ${{ needs.parse-request.outputs.resource_name }}\n\nWorkflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }' \
+              "https://${{ secrets.SERVICENOW_INSTANCE }}.service-now.com/api/now/table/sc_req_item?sysparm_query=number=${{ needs.parse-request.outputs.ticket_number }}"
+            echo "ServiceNow updated"
+          else
+            echo "ServiceNow instance not configured, skipping notification"
+          fi
+
+  # ============================================
+  # JOB 3A: Provision Virtual Machine
+  # ============================================
+  provision-vm:
+    name: Provision VM
+    needs: [parse-request, notify-started]
+    if: needs.parse-request.outputs.resource_type == 'vm'
+    runs-on: ubuntu-latest
+    outputs:
+      resource_id: ${{ steps.outputs.outputs.resource_id }}
+      public_ip: ${{ steps.outputs.outputs.public_ip }}
+      resource_group: ${{ steps.outputs.outputs.resource_group }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        working-directory: ./terraform/modules/vm
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=vm-${{ needs.parse-request.outputs.resource_name }}.tfstate"
+
+      - name: Terraform Plan
+        working-directory: ./terraform/modules/vm
+        run: |
+          terraform plan \
+            -var="vm_name=${{ needs.parse-request.outputs.resource_name }}" \
+            -var="vm_size=${{ needs.parse-request.outputs.vm_size }}" \
+            -var="os_type=${{ needs.parse-request.outputs.os_type }}" \
+            -var="environment=${{ needs.parse-request.outputs.environment }}" \
+            -var="cost_center=${{ needs.parse-request.outputs.cost_center }}" \
+            -var="ticket_number=${{ needs.parse-request.outputs.ticket_number }}" \
+            -var="requested_by=${{ needs.parse-request.outputs.requested_by }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: ./terraform/modules/vm
+        run: terraform apply -auto-approve tfplan
+
+      - name: Get Terraform Outputs
+        id: outputs
+        working-directory: ./terraform/modules/vm
+        run: |
+          echo "resource_id=$(terraform output -raw resource_id)" >> $GITHUB_OUTPUT
+          echo "public_ip=$(terraform output -raw public_ip 2>/dev/null || echo 'Pending')" >> $GITHUB_OUTPUT
+          echo "resource_group=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # JOB 3B: Provision Storage Account
+  # ============================================
+  provision-storage:
+    name: Provision Storage
+    needs: [parse-request, notify-started]
+    if: needs.parse-request.outputs.resource_type == 'storage'
+    runs-on: ubuntu-latest
+    outputs:
+      resource_id: ${{ steps.outputs.outputs.resource_id }}
+      blob_endpoint: ${{ steps.outputs.outputs.blob_endpoint }}
+      resource_group: ${{ steps.outputs.outputs.resource_group }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        working-directory: ./terraform/modules/storage
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=storage-${{ needs.parse-request.outputs.resource_name }}.tfstate"
+
+      - name: Terraform Plan & Apply
+        working-directory: ./terraform/modules/storage
+        run: |
+          terraform plan \
+            -var="storage_name=${{ needs.parse-request.outputs.resource_name }}" \
+            -var="storage_tier=${{ needs.parse-request.outputs.storage_tier }}" \
+            -var="replication=${{ needs.parse-request.outputs.replication }}" \
+            -var="environment=${{ needs.parse-request.outputs.environment }}" \
+            -var="cost_center=${{ needs.parse-request.outputs.cost_center }}" \
+            -var="ticket_number=${{ needs.parse-request.outputs.ticket_number }}" \
+            -out=tfplan
+
+          terraform apply -auto-approve tfplan
+
+      - name: Get Terraform Outputs
+        id: outputs
+        working-directory: ./terraform/modules/storage
+        run: |
+          echo "resource_id=$(terraform output -raw storage_account_id)" >> $GITHUB_OUTPUT
+          echo "blob_endpoint=$(terraform output -raw primary_blob_endpoint)" >> $GITHUB_OUTPUT
+          echo "resource_group=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # JOB 3C: Provision Databricks Workspace
+  # ============================================
+  provision-databricks:
+    name: Provision Databricks
+    needs: [parse-request, notify-started]
+    if: needs.parse-request.outputs.resource_type == 'databricks'
+    runs-on: ubuntu-latest
+    outputs:
+      resource_id: ${{ steps.outputs.outputs.resource_id }}
+      workspace_url: ${{ steps.outputs.outputs.workspace_url }}
+      resource_group: ${{ steps.outputs.outputs.resource_group }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        working-directory: ./terraform/modules/databricks
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=databricks-${{ needs.parse-request.outputs.resource_name }}.tfstate"
+
+      - name: Terraform Plan & Apply
+        working-directory: ./terraform/modules/databricks
+        run: |
+          terraform plan \
+            -var="workspace_name=${{ needs.parse-request.outputs.resource_name }}" \
+            -var="pricing_tier=${{ needs.parse-request.outputs.pricing_tier }}" \
+            -var="environment=${{ needs.parse-request.outputs.environment }}" \
+            -var="cost_center=${{ needs.parse-request.outputs.cost_center }}" \
+            -var="ticket_number=${{ needs.parse-request.outputs.ticket_number }}" \
+            -var="data_classification=${{ needs.parse-request.outputs.data_classification }}" \
+            -out=tfplan
+
+          terraform apply -auto-approve tfplan
+
+      - name: Get Terraform Outputs
+        id: outputs
+        working-directory: ./terraform/modules/databricks
+        run: |
+          echo "resource_id=$(terraform output -raw workspace_id)" >> $GITHUB_OUTPUT
+          echo "workspace_url=$(terraform output -raw workspace_url)" >> $GITHUB_OUTPUT
+          echo "resource_group=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # JOB 4: Update ServiceNow - Success
+  # ============================================
+  notify-success:
+    name: Notify Success
+    needs: [parse-request, provision-vm, provision-storage, provision-databricks]
+    if: |
+      always() &&
+      (needs.provision-vm.result == 'success' ||
+       needs.provision-storage.result == 'success' ||
+       needs.provision-databricks.result == 'success')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Build Success Message
+        id: message
+        run: |
+          RESOURCE_TYPE="${{ needs.parse-request.outputs.resource_type }}"
+
+          if [ "$RESOURCE_TYPE" == "vm" ]; then
+            MSG="Virtual Machine provisioned successfully!\n\nResource Details:\n- Resource ID: ${{ needs.provision-vm.outputs.resource_id }}\n- Public IP: ${{ needs.provision-vm.outputs.public_ip }}\n- Resource Group: ${{ needs.provision-vm.outputs.resource_group }}\n\nYou can connect via SSH (Linux) or RDP (Windows)."
+          elif [ "$RESOURCE_TYPE" == "storage" ]; then
+            MSG="Storage Account provisioned successfully!\n\nResource Details:\n- Resource ID: ${{ needs.provision-storage.outputs.resource_id }}\n- Blob Endpoint: ${{ needs.provision-storage.outputs.blob_endpoint }}\n- Resource Group: ${{ needs.provision-storage.outputs.resource_group }}\n\nYou can now upload files to your storage account."
+          elif [ "$RESOURCE_TYPE" == "databricks" ]; then
+            MSG="Databricks Workspace provisioned successfully!\n\nResource Details:\n- Workspace ID: ${{ needs.provision-databricks.outputs.resource_id }}\n- Workspace URL: https://${{ needs.provision-databricks.outputs.workspace_url }}\n- Resource Group: ${{ needs.provision-databricks.outputs.resource_group }}\n\nAccess your workspace at the URL above."
+          fi
+
+          # Escape for JSON
+          MSG=$(echo "$MSG" | sed 's/"/\\"/g')
+          echo "message=$MSG" >> $GITHUB_OUTPUT
+
+      - name: Update ServiceNow - Success
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.SERVICENOW_INSTANCE }}" ]; then
+            curl -s -X PATCH \
+              -u "${{ secrets.SERVICENOW_USER }}:${{ secrets.SERVICENOW_PASSWORD }}" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json" \
+              -d '{
+                "state": "3",
+                "work_notes": "${{ steps.message.outputs.message }}"
+              }' \
+              "https://${{ secrets.SERVICENOW_INSTANCE }}.service-now.com/api/now/table/sc_req_item?sysparm_query=number=${{ needs.parse-request.outputs.ticket_number }}"
+            echo "ServiceNow updated with success status"
+          fi
+
+  # ============================================
+  # JOB 5: Update ServiceNow - Failure
+  # ============================================
+  notify-failure:
+    name: Notify Failure
+    needs: [parse-request, provision-vm, provision-storage, provision-databricks]
+    if: |
+      always() &&
+      (needs.provision-vm.result == 'failure' ||
+       needs.provision-storage.result == 'failure' ||
+       needs.provision-databricks.result == 'failure')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Update ServiceNow - Failure
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.SERVICENOW_INSTANCE }}" ]; then
+            curl -s -X PATCH \
+              -u "${{ secrets.SERVICENOW_USER }}:${{ secrets.SERVICENOW_PASSWORD }}" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json" \
+              -d '{
+                "state": "4",
+                "work_notes": "Provisioning FAILED for ${{ needs.parse-request.outputs.resource_type }}: ${{ needs.parse-request.outputs.resource_name }}\n\nPlease review the GitHub Actions logs:\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nContact the Cloud Team for assistance."
+              }' \
+              "https://${{ secrets.SERVICENOW_INSTANCE }}.service-now.com/api/now/table/sc_req_item?sysparm_query=number=${{ needs.parse-request.outputs.ticket_number }}"
+            echo "ServiceNow updated with failure status"
+          fi
