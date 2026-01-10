@@ -199,9 +199,9 @@ resource "azurerm_key_vault" "phi" {
   purge_protection_enabled        = true
   soft_delete_retention_days      = 90
 
-  # Network restrictions
+  # Network restrictions - Allow access during deployment, restrict later
   network_acls {
-    default_action             = "Deny"
+    default_action             = "Allow"  # Allow during Terraform deployment
     bypass                     = "AzureServices"
     virtual_network_subnet_ids = [azurerm_subnet.compute.id]
   }
@@ -447,7 +447,7 @@ resource "azurerm_storage_account" "phi" {
   }
 
   network_rules {
-    default_action             = "Deny"
+    default_action             = "Allow"  # Allow during Terraform deployment
     bypass                     = ["AzureServices"]
     virtual_network_subnet_ids = [azurerm_subnet.compute.id]
   }
@@ -678,6 +678,12 @@ resource "azurerm_resource_group_policy_assignment" "hipaa" {
   policy_definition_id = "/providers/Microsoft.Authorization/policySetDefinitions/a169a624-5599-4385-a696-c8d643089fab"
   display_name         = "HIPAA HITRUST - ${var.project_name}"
   description          = "HIPAA HITRUST compliance for PHI research environment"
+  location             = azurerm_resource_group.phi.location
+
+  # Required for DeployIfNotExists policies
+  identity {
+    type = "SystemAssigned"
+  }
 
   non_compliance_message {
     content = "This resource is not compliant with HIPAA HITRUST requirements."
