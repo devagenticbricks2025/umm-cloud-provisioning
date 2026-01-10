@@ -1,0 +1,249 @@
+{
+  "catalog_item": {
+    "name": "Start Research Computing",
+    "short_description": "Simple compute and storage for research",
+    "description": "Request computing resources for your research project. This is for non-PHI data only.\n\nIf you need to work with Protected Health Information (PHI), please use 'Request Secure PHI Research (AVE)' instead.",
+    "category": "Research Computing Services",
+    "icon": "fa-desktop",
+    "order": 100,
+    "active": true
+  },
+
+  "variable_sets": [
+    {
+      "name": "Step 1: About Your Research",
+      "order": 100,
+      "display_title": true
+    },
+    {
+      "name": "Step 2: Work Type",
+      "order": 200,
+      "display_title": true
+    },
+    {
+      "name": "Step 3: Review & Submit",
+      "order": 300,
+      "display_title": true
+    }
+  ],
+
+  "variables": [
+    {
+      "variable_set": "Step 1: About Your Research",
+      "order": 100,
+      "name": "project_name",
+      "question": "Research Project Name",
+      "type": "Single Line Text",
+      "mandatory": true,
+      "help_text": "Enter a descriptive name for your research project"
+    },
+    {
+      "variable_set": "Step 1: About Your Research",
+      "order": 200,
+      "name": "department",
+      "question": "Department",
+      "type": "Select Box",
+      "mandatory": true,
+      "choices": [
+        {"value": "internal_medicine", "label": "Internal Medicine"},
+        {"value": "radiology", "label": "Radiology"},
+        {"value": "cardiology", "label": "Cardiology"},
+        {"value": "oncology", "label": "Oncology"},
+        {"value": "neurology", "label": "Neurology"},
+        {"value": "pathology", "label": "Pathology"},
+        {"value": "surgery", "label": "Surgery"},
+        {"value": "pediatrics", "label": "Pediatrics"},
+        {"value": "other", "label": "Other"}
+      ]
+    },
+    {
+      "variable_set": "Step 1: About Your Research",
+      "order": 300,
+      "name": "principal_investigator",
+      "question": "Principal Investigator",
+      "type": "Reference",
+      "reference_table": "sys_user",
+      "mandatory": true,
+      "help_text": "Search for the PI by name or email"
+    },
+    {
+      "variable_set": "Step 1: About Your Research",
+      "order": 400,
+      "name": "grant_code",
+      "question": "Grant/Project Code",
+      "type": "Single Line Text",
+      "mandatory": false,
+      "help_text": "Optional: Enter the grant or project code for cost allocation"
+    },
+    {
+      "variable_set": "Step 1: About Your Research",
+      "order": 500,
+      "name": "requestor_role",
+      "question": "Your Role",
+      "type": "Select Box",
+      "mandatory": true,
+      "default_value": "researcher",
+      "choices": [
+        {"value": "researcher", "label": "Researcher"},
+        {"value": "analyst", "label": "Analyst"},
+        {"value": "lab_manager", "label": "Lab Manager"},
+        {"value": "student", "label": "Graduate Student"},
+        {"value": "postdoc", "label": "Postdoctoral Fellow"}
+      ]
+    },
+    {
+      "variable_set": "Step 1: About Your Research",
+      "order": 600,
+      "name": "expected_end_date",
+      "question": "Expected Project End Date",
+      "type": "Date",
+      "mandatory": true,
+      "help_text": "When do you expect this project to conclude? Default is 180 days from now."
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 100,
+      "name": "data_type",
+      "question": "What type of data will you be working with?",
+      "type": "Select Box",
+      "mandatory": true,
+      "default_value": "non_phi",
+      "help_text": "If you will be working with patient data (PHI), you must use the Secure PHI Research request.",
+      "choices": [
+        {"value": "non_phi", "label": "Non-PHI (No patient data)"},
+        {"value": "phi", "label": "PHI (Contains patient data) - Use AVE Request"}
+      ]
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 150,
+      "name": "phi_warning",
+      "question": "",
+      "type": "Label",
+      "default_value": "⚠️ PHI data requires a Secure PHI Research (AVE) environment. Please cancel this request and submit an AVE request instead.",
+      "help_text": "",
+      "visible_condition": "data_type == 'phi'"
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 200,
+      "name": "workload_statistical",
+      "question": "Statistical Analysis",
+      "type": "CheckBox",
+      "mandatory": false,
+      "help_text": "R, SAS, SPSS, Stata analysis"
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 210,
+      "name": "workload_imaging",
+      "question": "Imaging Analysis",
+      "type": "CheckBox",
+      "mandatory": false,
+      "help_text": "Medical imaging processing and analysis"
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 220,
+      "name": "workload_ml",
+      "question": "Machine Learning / AI",
+      "type": "CheckBox",
+      "mandatory": false,
+      "help_text": "ML model training, deep learning, AI workloads"
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 230,
+      "name": "workload_data_prep",
+      "question": "Data Preparation",
+      "type": "CheckBox",
+      "mandatory": false,
+      "help_text": "ETL, data cleaning, transformation"
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 240,
+      "name": "workload_unsure",
+      "question": "Not sure - recommend for me",
+      "type": "CheckBox",
+      "mandatory": false,
+      "help_text": "We'll help determine the best configuration"
+    },
+    {
+      "variable_set": "Step 2: Work Type",
+      "order": 300,
+      "name": "additional_users",
+      "question": "Who else needs access?",
+      "type": "List Collector",
+      "reference_table": "sys_user",
+      "mandatory": false,
+      "help_text": "Add team members who need access to this environment"
+    },
+    {
+      "variable_set": "Step 3: Review & Submit",
+      "order": 100,
+      "name": "cost_estimate_display",
+      "question": "Estimated Monthly Cost",
+      "type": "Label",
+      "default_value": "💰 $350 - $650 per month\n\nActual costs may vary based on usage. Resources are billed to the cost center associated with your department.",
+      "help_text": ""
+    },
+    {
+      "variable_set": "Step 3: Review & Submit",
+      "order": 200,
+      "name": "cost_confirmation",
+      "question": "I confirm this cost aligns with my funding and I have authorization to proceed",
+      "type": "CheckBox",
+      "mandatory": true,
+      "help_text": "You must acknowledge the estimated cost before submitting"
+    },
+    {
+      "variable_set": "Step 3: Review & Submit",
+      "order": 300,
+      "name": "comments",
+      "question": "Additional Comments",
+      "type": "Multi Line Text",
+      "mandatory": false,
+      "rows": 4,
+      "help_text": "Any additional information or special requirements"
+    }
+  ],
+
+  "ui_policies": [
+    {
+      "name": "Show PHI Warning",
+      "short_description": "Show warning when PHI is selected",
+      "conditions": [
+        {"field": "data_type", "operator": "is", "value": "phi"}
+      ],
+      "actions": [
+        {"field": "phi_warning", "visible": true}
+      ],
+      "reverse_if_false": true
+    }
+  ],
+
+  "client_scripts": [
+    {
+      "name": "Calculate Cost Estimate",
+      "type": "onChange",
+      "field_name": "workload_statistical,workload_imaging,workload_ml,workload_data_prep",
+      "script": "function onChange(control, oldValue, newValue, isLoading) {\n  if (isLoading) return;\n  \n  var baseCost = 350;\n  var maxCost = 350;\n  \n  if (g_form.getValue('workload_statistical') == 'true') {\n    baseCost = Math.max(baseCost, 350);\n    maxCost = Math.max(maxCost, 450);\n  }\n  if (g_form.getValue('workload_imaging') == 'true') {\n    baseCost = Math.max(baseCost, 400);\n    maxCost = Math.max(maxCost, 550);\n  }\n  if (g_form.getValue('workload_ml') == 'true') {\n    baseCost = Math.max(baseCost, 500);\n    maxCost = Math.max(maxCost, 650);\n  }\n  if (g_form.getValue('workload_data_prep') == 'true') {\n    baseCost = Math.max(baseCost, 350);\n    maxCost = Math.max(maxCost, 500);\n  }\n  \n  // Update display (Note: Labels can't be dynamically updated easily)\n  // This is for reference - actual implementation may vary\n}"
+    }
+  ],
+
+  "workflow_trigger": {
+    "event": "Approved",
+    "action": "Trigger GitHub Actions",
+    "payload_mapping": {
+      "ticket_number": "current.number",
+      "resource_type": "standard_research",
+      "project_name": "variables.project_name",
+      "department": "variables.department",
+      "principal_investigator": "variables.principal_investigator.email",
+      "workload_type": "computed from workload_* checkboxes",
+      "environment": "dev",
+      "cost_center": "variables.grant_code or department default"
+    }
+  }
+}

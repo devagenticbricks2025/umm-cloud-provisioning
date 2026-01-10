@@ -1,0 +1,325 @@
+{
+  "catalog_item": {
+    "name": "Request Secure PHI Research (AVE)",
+    "short_description": "Approved environment for patient data",
+    "description": "Request a secure Azure Virtual Enclave (AVE) for research involving Protected Health Information (PHI).\n\nThis environment includes:\n• HIPAA-compliant infrastructure\n• Network isolation and encryption\n• Audit logging and monitoring\n• IRB approval verification\n\nProvisioning takes 3-5 business days due to security review requirements.",
+    "category": "Research Computing Services",
+    "icon": "fa-shield",
+    "order": 200,
+    "active": true
+  },
+
+  "variable_sets": [
+    {
+      "name": "Step 1: Research & Compliance",
+      "order": 100,
+      "display_title": true
+    },
+    {
+      "name": "Step 2: Access & Roles",
+      "order": 200,
+      "display_title": true
+    },
+    {
+      "name": "Step 3: Environment Usage",
+      "order": 300,
+      "display_title": true
+    },
+    {
+      "name": "Step 4: Cost & Retention",
+      "order": 400,
+      "display_title": true
+    }
+  ],
+
+  "variables": [
+    {
+      "variable_set": "Step 1: Research & Compliance",
+      "order": 100,
+      "name": "project_name",
+      "question": "Research Project Name",
+      "type": "Single Line Text",
+      "mandatory": true,
+      "help_text": "Enter the official name of your research project"
+    },
+    {
+      "variable_set": "Step 1: Research & Compliance",
+      "order": 200,
+      "name": "principal_investigator",
+      "question": "Principal Investigator",
+      "type": "Reference",
+      "reference_table": "sys_user",
+      "mandatory": true,
+      "help_text": "The PI responsible for this research and data access"
+    },
+    {
+      "variable_set": "Step 1: Research & Compliance",
+      "order": 300,
+      "name": "irb_number",
+      "question": "IRB Protocol Number",
+      "type": "Single Line Text",
+      "mandatory": true,
+      "help_text": "Enter your Institutional Review Board protocol number (e.g., HUM-00123456)"
+    },
+    {
+      "variable_set": "Step 1: Research & Compliance",
+      "order": 400,
+      "name": "irb_status",
+      "question": "IRB Status",
+      "type": "Select Box",
+      "mandatory": true,
+      "choices": [
+        {"value": "approved", "label": "Approved"},
+        {"value": "pending", "label": "Pending Approval"},
+        {"value": "exempt", "label": "Exempt"}
+      ],
+      "help_text": "Current status of your IRB application"
+    },
+    {
+      "variable_set": "Step 1: Research & Compliance",
+      "order": 500,
+      "name": "data_type_display",
+      "question": "Type of Data",
+      "type": "Label",
+      "default_value": "🔒 PHI (Protected Health Information)\n\nThis environment is designed for HIPAA-compliant research with patient data.",
+      "help_text": ""
+    },
+    {
+      "variable_set": "Step 1: Research & Compliance",
+      "order": 600,
+      "name": "research_purpose",
+      "question": "Research Purpose",
+      "type": "Multi Line Text",
+      "mandatory": true,
+      "rows": 4,
+      "help_text": "Describe the purpose of your research and how PHI will be used"
+    },
+    {
+      "variable_set": "Step 2: Access & Roles",
+      "order": 100,
+      "name": "authorized_users_info",
+      "question": "",
+      "type": "Label",
+      "default_value": "👥 Authorized Users\n\nThe Principal Investigator is automatically added with the PI role. Add additional team members below.\n\nAll access to this environment is logged and subject to audit.",
+      "help_text": ""
+    },
+    {
+      "variable_set": "Step 2: Access & Roles",
+      "order": 200,
+      "name": "additional_researchers",
+      "question": "Additional Researchers",
+      "type": "List Collector",
+      "reference_table": "sys_user",
+      "mandatory": false,
+      "help_text": "Add team members who need Researcher-level access"
+    },
+    {
+      "variable_set": "Step 2: Access & Roles",
+      "order": 300,
+      "name": "additional_analysts",
+      "question": "Additional Analysts",
+      "type": "List Collector",
+      "reference_table": "sys_user",
+      "mandatory": false,
+      "help_text": "Add team members who need Analyst-level access (read-only for sensitive data)"
+    },
+    {
+      "variable_set": "Step 2: Access & Roles",
+      "order": 400,
+      "name": "additional_viewers",
+      "question": "Additional Viewers",
+      "type": "List Collector",
+      "reference_table": "sys_user",
+      "mandatory": false,
+      "help_text": "Add team members who need view-only access to results"
+    },
+    {
+      "variable_set": "Step 2: Access & Roles",
+      "order": 500,
+      "name": "audit_acknowledgment",
+      "question": "I understand that all access to this environment is logged and subject to audit",
+      "type": "CheckBox",
+      "mandatory": true,
+      "help_text": "Required acknowledgment for PHI environments"
+    },
+    {
+      "variable_set": "Step 3: Environment Usage",
+      "order": 100,
+      "name": "access_method",
+      "question": "How will you access this environment?",
+      "type": "Select Box",
+      "mandatory": true,
+      "choices": [
+        {"value": "remote_desktop", "label": "Secure Remote Desktop"},
+        {"value": "analytics_workspace", "label": "Analytics Workspace (Databricks)"},
+        {"value": "both", "label": "Both"}
+      ],
+      "help_text": "Choose the primary way you'll interact with the environment"
+    },
+    {
+      "variable_set": "Step 3: Environment Usage",
+      "order": 200,
+      "name": "expected_duration",
+      "question": "Expected Duration",
+      "type": "Select Box",
+      "mandatory": true,
+      "default_value": "6_months",
+      "choices": [
+        {"value": "3_months", "label": "3 months"},
+        {"value": "6_months", "label": "6 months"},
+        {"value": "12_months", "label": "12 months"},
+        {"value": "24_months", "label": "24 months"}
+      ],
+      "help_text": "How long do you expect to need this environment?"
+    },
+    {
+      "variable_set": "Step 3: Environment Usage",
+      "order": 300,
+      "name": "renewal_reminders",
+      "question": "Send renewal reminders before expiration",
+      "type": "CheckBox",
+      "mandatory": false,
+      "default_value": "true",
+      "help_text": "We'll email you 30 days before your environment expires"
+    },
+    {
+      "variable_set": "Step 4: Cost & Retention",
+      "order": 100,
+      "name": "cost_estimate_display",
+      "question": "Estimated Monthly Cost",
+      "type": "Label",
+      "default_value": "💰 $4,200 - $8,500 per month\n\nThis includes:\n• HIPAA-compliant compute resources\n• Encrypted storage\n• Network isolation\n• Security monitoring (Defender for Cloud)\n• Audit logging\n• Backup and disaster recovery\n\nActual costs depend on compute size and data volume.",
+      "help_text": ""
+    },
+    {
+      "variable_set": "Step 4: Cost & Retention",
+      "order": 200,
+      "name": "funding_source",
+      "question": "Funding Source / Grant Code",
+      "type": "Single Line Text",
+      "mandatory": true,
+      "help_text": "Enter the grant code or funding source for billing"
+    },
+    {
+      "variable_set": "Step 4: Cost & Retention",
+      "order": 300,
+      "name": "data_retention",
+      "question": "Data Retention Requirement",
+      "type": "Select Box",
+      "mandatory": true,
+      "default_value": "90_days",
+      "choices": [
+        {"value": "30_days", "label": "30 days after project end"},
+        {"value": "90_days", "label": "90 days after project end"},
+        {"value": "1_year", "label": "1 year after project end"},
+        {"value": "7_years", "label": "7 years (HIPAA requirement)"},
+        {"value": "custom", "label": "Custom - specify in comments"}
+      ],
+      "help_text": "How long should data be retained after the project ends?"
+    },
+    {
+      "variable_set": "Step 4: Cost & Retention",
+      "order": 400,
+      "name": "cost_confirmation",
+      "question": "I confirm this cost aligns with my funding and I have authorization to proceed",
+      "type": "CheckBox",
+      "mandatory": true,
+      "help_text": "You must acknowledge the estimated cost before submitting"
+    },
+    {
+      "variable_set": "Step 4: Cost & Retention",
+      "order": 500,
+      "name": "comments",
+      "question": "Additional Comments",
+      "type": "Multi Line Text",
+      "mandatory": false,
+      "rows": 4,
+      "help_text": "Any special requirements, custom retention needs, or other information"
+    }
+  ],
+
+  "ui_policies": [
+    {
+      "name": "IRB Pending Warning",
+      "short_description": "Show note when IRB is pending",
+      "conditions": [
+        {"field": "irb_status", "operator": "is", "value": "pending"}
+      ],
+      "actions": [
+        {"field": "irb_number", "help_text": "Note: Environment provisioning will wait for IRB approval"}
+      ]
+    }
+  ],
+
+  "approval_rules": [
+    {
+      "name": "Manager Approval",
+      "order": 1,
+      "approver": "Requested For's Manager",
+      "conditions": "Always"
+    },
+    {
+      "name": "Security Review",
+      "order": 2,
+      "approver": "Information Security Team",
+      "conditions": "Always for PHI"
+    },
+    {
+      "name": "IRB Verification",
+      "order": 3,
+      "approver": "Research Compliance Office",
+      "conditions": "When IRB Status is 'Pending'"
+    }
+  ],
+
+  "workflow_trigger": {
+    "event": "All Approvals Complete",
+    "action": "Trigger GitHub Actions",
+    "payload_mapping": {
+      "ticket_number": "current.number",
+      "resource_type": "phi_ave",
+      "project_name": "variables.project_name",
+      "principal_investigator": "variables.principal_investigator.email",
+      "irb_number": "variables.irb_number",
+      "irb_status": "variables.irb_status",
+      "access_method": "variables.access_method",
+      "duration": "variables.expected_duration",
+      "data_retention": "variables.data_retention",
+      "authorized_users": "combined from researchers, analysts, viewers",
+      "environment": "prod",
+      "cost_center": "variables.funding_source",
+      "data_classification": "phi"
+    }
+  },
+
+  "security_requirements": {
+    "network": {
+      "vnet_isolation": true,
+      "private_endpoints": true,
+      "no_public_ip": true,
+      "nsg_rules": "deny_all_inbound_except_bastion"
+    },
+    "encryption": {
+      "at_rest": "customer_managed_key",
+      "in_transit": "tls_1.2_required",
+      "disk_encryption": "azure_disk_encryption"
+    },
+    "identity": {
+      "rbac": true,
+      "pim_jit": true,
+      "conditional_access": true,
+      "mfa_required": true
+    },
+    "logging": {
+      "diagnostic_settings": true,
+      "log_analytics": true,
+      "defender_for_cloud": true,
+      "sentinel": "optional"
+    },
+    "compliance": {
+      "hipaa_policy": true,
+      "hitrust_baseline": true,
+      "defender_recommendations": true
+    }
+  }
+}
