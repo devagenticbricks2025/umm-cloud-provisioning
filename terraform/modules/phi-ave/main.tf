@@ -797,27 +797,5 @@ output "security_summary" {
 
 output "access_instructions" {
   description = "Instructions for accessing the environment"
-  value       = <<-EOT
-    ACCESS INSTRUCTIONS FOR PHI ENVIRONMENT
-    =======================================
-
-    1. VM Access (via Azure Bastion):
-       - Go to Azure Portal > Virtual Machines > ${local.deploy_vm ? azurerm_linux_virtual_machine.phi[0].name : "N/A"}
-       - Click "Connect" > "Bastion"
-       - Use username: phiadmin
-       - Use SSH key from Key Vault or Terraform output
-
-    2. Databricks Access:
-       ${local.deploy_databricks ? "- URL: https://${azurerm_databricks_workspace.phi[0].workspace_url}" : "- Not deployed"}
-       - Access via Azure AD SSO
-
-    3. Storage Access:
-       - Use Azure AD authentication
-       - Private endpoint: ${azurerm_private_endpoint.storage.private_service_connection[0].private_ip_address}
-
-    SECURITY NOTES:
-    - All access is logged and audited
-    - No public IPs - Bastion only
-    - Data is encrypted at rest and in transit
-  EOT
+  value       = "PHI Environment - Access via Azure Bastion only. VM: ${local.deploy_vm ? azurerm_linux_virtual_machine.phi[0].name : "N/A"} (user: phiadmin). Databricks: ${local.deploy_databricks ? azurerm_databricks_workspace.phi[0].workspace_url : "N/A"}. All access is logged and audited."
 }

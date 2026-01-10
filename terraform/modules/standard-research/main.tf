@@ -517,43 +517,11 @@ output "workload_types" {
 
 output "connection_instructions" {
   description = "Instructions for connecting to the VM"
-  value = local.selected_os.is_linux ? <<-EOT
-    STANDARD RESEARCH COMPUTING - CONNECTION INSTRUCTIONS
-    =====================================================
-
-    1. SSH Connection:
-       ssh researcher@${azurerm_public_ip.main.ip_address}
-
-    2. Save the private key to a file and use:
-       ssh -i private_key.pem researcher@${azurerm_public_ip.main.ip_address}
-
-    3. Storage Account: ${azurerm_storage_account.main.name}
-       - Use Azure Storage Explorer or azcopy
-       - Containers: research-data, research-results, scripts
-
-    Project: ${var.project_name}
-    Department: ${var.department}
-    Workloads: ${var.workload_types}
-    Data Classification: Non-PHI
-    EOT
-  : <<-EOT
-    STANDARD RESEARCH COMPUTING - CONNECTION INSTRUCTIONS
-    =====================================================
-
-    1. RDP Connection:
-       Connect to ${azurerm_public_ip.main.ip_address}
-       Username: researcher
-       Password: (see Terraform outputs or ServiceNow ticket)
-
-    2. Storage Account: ${azurerm_storage_account.main.name}
-       - Use Azure Storage Explorer
-       - Containers: research-data, research-results, scripts
-
-    Project: ${var.project_name}
-    Department: ${var.department}
-    Workloads: ${var.workload_types}
-    Data Classification: Non-PHI
-    EOT
+  value = (
+    local.selected_os.is_linux
+    ? "SSH: ssh researcher@${azurerm_public_ip.main.ip_address} | Storage: ${azurerm_storage_account.main.name} | Project: ${var.project_name} | Data: Non-PHI"
+    : "RDP: ${azurerm_public_ip.main.ip_address} (User: researcher) | Storage: ${azurerm_storage_account.main.name} | Project: ${var.project_name} | Data: Non-PHI"
+  )
 }
 
 output "environment_summary" {
