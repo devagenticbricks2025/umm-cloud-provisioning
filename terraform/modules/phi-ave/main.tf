@@ -225,9 +225,7 @@ resource "azurerm_key_vault_key" "disk_encryption" {
     "wrapKey",
   ]
 
-  depends_on = [
-    azurerm_role_assignment.kv_admin
-  ]
+  depends_on = [azurerm_role_assignment.kv_admin]
 }
 
 # RBAC for Key Vault
@@ -266,12 +264,11 @@ resource "azurerm_subnet" "compute" {
 
 # Private Endpoints Subnet
 resource "azurerm_subnet" "private_endpoints" {
-  name                                          = "snet-private-endpoints"
-  resource_group_name                           = azurerm_resource_group.phi.name
-  virtual_network_name                          = azurerm_virtual_network.phi.name
-  address_prefixes                              = ["10.200.2.0/24"]
-  private_endpoint_network_policies_enabled     = false
-  private_link_service_network_policies_enabled = false
+  name                              = "snet-private-endpoints"
+  resource_group_name               = azurerm_resource_group.phi.name
+  virtual_network_name              = azurerm_virtual_network.phi.name
+  address_prefixes                  = ["10.200.2.0/24"]
+  private_endpoint_network_policies = "Disabled"
 }
 
 # Azure Bastion Subnet (for secure access)
@@ -430,7 +427,7 @@ resource "azurerm_storage_account" "phi" {
   min_tls_version                 = "TLS1_2"
   enable_https_traffic_only       = true
   allow_nested_items_to_be_public = false
-  shared_access_key_enabled       = false # Use Azure AD auth
+  shared_access_key_enabled       = true  # Required for Terraform to create containers
 
   # Encryption with customer-managed key
   identity {
@@ -554,9 +551,7 @@ resource "azurerm_linux_virtual_machine" "phi" {
 
   tags = local.common_tags
 
-  depends_on = [
-    azurerm_disk_encryption_set.phi
-  ]
+  depends_on = [azurerm_role_assignment.des_kv]
 }
 
 # Disk Encryption Set
@@ -677,7 +672,6 @@ resource "azurerm_monitor_diagnostic_setting" "databricks" {
 # ============================================
 # Azure Policy Assignment (HIPAA/HITRUST)
 # ============================================
-
 resource "azurerm_resource_group_policy_assignment" "hipaa" {
   name                 = "hipaa-${local.resource_prefix}"
   resource_group_id    = azurerm_resource_group.phi.id
