@@ -63,7 +63,7 @@ variable "data_retention" {
 
 variable "vm_size" {
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_D2s_v3"
   description = "Size of the VM for remote desktop access"
 }
 
@@ -201,9 +201,8 @@ resource "azurerm_key_vault" "phi" {
 
   # Network restrictions - Allow access during deployment, restrict later
   network_acls {
-    default_action             = "Allow"  # Allow during Terraform deployment
-    bypass                     = "AzureServices"
-    virtual_network_subnet_ids = [azurerm_subnet.compute.id]
+    default_action = "Allow"  # Allow during Terraform deployment
+    bypass         = "AzureServices"
   }
 
   tags = local.common_tags
@@ -425,7 +424,7 @@ resource "azurerm_storage_account" "phi" {
 
   # Security settings
   min_tls_version                 = "TLS1_2"
-  enable_https_traffic_only       = true
+  https_traffic_only_enabled      = true
   allow_nested_items_to_be_public = false
   shared_access_key_enabled       = true  # Required for Terraform to create containers
 
@@ -447,9 +446,8 @@ resource "azurerm_storage_account" "phi" {
   }
 
   network_rules {
-    default_action             = "Allow"  # Allow during Terraform deployment
-    bypass                     = ["AzureServices"]
-    virtual_network_subnet_ids = [azurerm_subnet.compute.id]
+    default_action = "Allow"  # Allow during Terraform deployment
+    bypass         = ["AzureServices"]
   }
 
   tags = local.common_tags
