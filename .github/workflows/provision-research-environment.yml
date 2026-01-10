@@ -319,68 +319,75 @@ jobs:
     steps:
       - name: Build Success Message
         id: message
+        env:
+          REQUEST_TYPE: ${{ needs.parse-request.outputs.request_type }}
+          RG: ${{ needs.provision.outputs.resource_group }}
+          PROJECT: ${{ needs.parse-request.outputs.project_name }}
+          WORKLOADS: ${{ needs.parse-request.outputs.workload_types }}
+          PI: ${{ needs.parse-request.outputs.principal_investigator }}
+          COST_CENTER: ${{ needs.parse-request.outputs.cost_center }}
+          IRB: ${{ needs.parse-request.outputs.irb_number }}
+          DURATION: ${{ needs.parse-request.outputs.expected_duration }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          REQUEST_TYPE="${{ needs.parse-request.outputs.request_type }}"
-          RG="${{ needs.provision.outputs.resource_group }}"
-
           if [ "$REQUEST_TYPE" == "standard_research" ]; then
-            MSG="SUCCESS: Standard Research Environment Ready!
-
-Environment Details:
-- Resource Group: $RG
-- Project: ${{ needs.parse-request.outputs.project_name }}
-- Workloads: ${{ needs.parse-request.outputs.workload_types }}
-
-Access Instructions:
-Connection details have been sent to ${{ needs.parse-request.outputs.principal_investigator }}
-
-Estimated Monthly Cost: \$350-\$650
-Cost Center: ${{ needs.parse-request.outputs.cost_center }}
-
-Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          elif [ "$REQUEST_TYPE" == "phi_ave" ]; then
-            MSG="SUCCESS: Secure PHI Environment (AVE) Ready!
-
-HIPAA-compliant environment provisioned.
-
-Environment Details:
-- Resource Group: $RG
-- Project: ${{ needs.parse-request.outputs.project_name }}
-- IRB: ${{ needs.parse-request.outputs.irb_number }}
-- Duration: ${{ needs.parse-request.outputs.expected_duration }}
-
-Security Features Enabled:
-- Network isolation (no public IP)
-- Encryption at rest (Customer-managed key)
-- Encryption in transit (TLS 1.2)
-- Audit logging (Log Analytics)
-- HIPAA/HITRUST policy applied
-- Azure Bastion for secure access
-
-Access Instructions:
-All access is via Azure Bastion only. Contact the PI for access coordination.
-
-Estimated Monthly Cost: \$4,200-\$8,500
-Cost Center: ${{ needs.parse-request.outputs.cost_center }}
-
-Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "SUCCESS: Standard Research Environment Ready!" > /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Environment Details:" >> /tmp/message.txt
+            echo "- Resource Group: $RG" >> /tmp/message.txt
+            echo "- Project: $PROJECT" >> /tmp/message.txt
+            echo "- Workloads: $WORKLOADS" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Access Instructions:" >> /tmp/message.txt
+            echo "Connection details sent to $PI" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Estimated Monthly Cost: 350-650 USD" >> /tmp/message.txt
+            echo "Cost Center: $COST_CENTER" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Workflow: $WORKFLOW_URL" >> /tmp/message.txt
+          else
+            echo "SUCCESS: Secure PHI Environment (AVE) Ready!" > /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "HIPAA-compliant environment provisioned." >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Environment Details:" >> /tmp/message.txt
+            echo "- Resource Group: $RG" >> /tmp/message.txt
+            echo "- Project: $PROJECT" >> /tmp/message.txt
+            echo "- IRB: $IRB" >> /tmp/message.txt
+            echo "- Duration: $DURATION" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Security Features Enabled:" >> /tmp/message.txt
+            echo "- Network isolation (no public IP)" >> /tmp/message.txt
+            echo "- Encryption at rest (Customer-managed key)" >> /tmp/message.txt
+            echo "- Encryption in transit (TLS 1.2)" >> /tmp/message.txt
+            echo "- Audit logging (Log Analytics)" >> /tmp/message.txt
+            echo "- HIPAA/HITRUST policy applied" >> /tmp/message.txt
+            echo "- Azure Bastion for secure access" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Access: Via Azure Bastion only." >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Estimated Monthly Cost: 4200-8500 USD" >> /tmp/message.txt
+            echo "Cost Center: $COST_CENTER" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "Workflow: $WORKFLOW_URL" >> /tmp/message.txt
           fi
-
-          # Save to file for proper escaping
-          echo "$MSG" > /tmp/message.txt
 
       - name: Update ServiceNow - Success
         continue-on-error: true
+        env:
+          SNOW_INSTANCE: ${{ secrets.SERVICENOW_INSTANCE }}
+          SNOW_USER: ${{ secrets.SERVICENOW_USER }}
+          SNOW_PASS: ${{ secrets.SERVICENOW_PASSWORD }}
+          TICKET: ${{ needs.parse-request.outputs.ticket_number }}
         run: |
           MSG=$(cat /tmp/message.txt | jq -Rs .)
 
-          if [ -n "${{ secrets.SERVICENOW_INSTANCE }}" ]; then
+          if [ -n "$SNOW_INSTANCE" ]; then
             curl -s -X PATCH \
-              -u "${{ secrets.SERVICENOW_USER }}:${{ secrets.SERVICENOW_PASSWORD }}" \
+              -u "$SNOW_USER:$SNOW_PASS" \
               -H "Content-Type: application/json" \
               -d "{\"state\": \"3\", \"work_notes\": $MSG}" \
-              "https://${{ secrets.SERVICENOW_INSTANCE }}.service-now.com/api/now/table/sc_req_item?sysparm_query=number=${{ needs.parse-request.outputs.ticket_number }}"
+              "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item?sysparm_query=number=$TICKET"
           fi
 
   # ============================================
@@ -395,23 +402,31 @@ Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ git
     steps:
       - name: Update ServiceNow - Failure
         continue-on-error: true
+        env:
+          REQUEST_TYPE: ${{ needs.parse-request.outputs.request_type }}
+          PROJECT: ${{ needs.parse-request.outputs.project_name }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SNOW_INSTANCE: ${{ secrets.SERVICENOW_INSTANCE }}
+          SNOW_USER: ${{ secrets.SERVICENOW_USER }}
+          SNOW_PASS: ${{ secrets.SERVICENOW_PASSWORD }}
+          TICKET: ${{ needs.parse-request.outputs.ticket_number }}
         run: |
-          MSG="FAILED: Provisioning Failed
+          echo "FAILED: Provisioning Failed" > /tmp/message.txt
+          echo "" >> /tmp/message.txt
+          echo "Request Type: $REQUEST_TYPE" >> /tmp/message.txt
+          echo "Project: $PROJECT" >> /tmp/message.txt
+          echo "" >> /tmp/message.txt
+          echo "Please review the GitHub Actions logs for details:" >> /tmp/message.txt
+          echo "$WORKFLOW_URL" >> /tmp/message.txt
+          echo "" >> /tmp/message.txt
+          echo "Contact the Cloud Team for assistance." >> /tmp/message.txt
 
-Request Type: ${{ needs.parse-request.outputs.request_type }}
-Project: ${{ needs.parse-request.outputs.project_name }}
+          MSG_JSON=$(cat /tmp/message.txt | jq -Rs .)
 
-Please review the GitHub Actions logs for details:
-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-Contact the Cloud Team for assistance."
-
-          MSG_JSON=$(echo "$MSG" | jq -Rs .)
-
-          if [ -n "${{ secrets.SERVICENOW_INSTANCE }}" ]; then
+          if [ -n "$SNOW_INSTANCE" ]; then
             curl -s -X PATCH \
-              -u "${{ secrets.SERVICENOW_USER }}:${{ secrets.SERVICENOW_PASSWORD }}" \
+              -u "$SNOW_USER:$SNOW_PASS" \
               -H "Content-Type: application/json" \
               -d "{\"state\": \"4\", \"work_notes\": $MSG_JSON}" \
-              "https://${{ secrets.SERVICENOW_INSTANCE }}.service-now.com/api/now/table/sc_req_item?sysparm_query=number=${{ needs.parse-request.outputs.ticket_number }}"
+              "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item?sysparm_query=number=$TICKET"
           fi
