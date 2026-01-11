@@ -388,23 +388,54 @@ jobs:
             echo "Workflow: $WORKFLOW_URL" >> /tmp/message.txt
           fi
 
-      - name: Update ServiceNow - Success
-        continue-on-error: true
+      - name: Update ServiceNow - Close Ticket as Complete
         env:
           SNOW_INSTANCE: ${{ secrets.SERVICENOW_INSTANCE }}
           SNOW_USER: ${{ secrets.SERVICENOW_USER }}
           SNOW_PASS: ${{ secrets.SERVICENOW_PASSWORD }}
           TICKET: ${{ needs.parse-request.outputs.ticket_number }}
         run: |
-          MSG=$(cat /tmp/message.txt | jq -Rs .)
-
-          if [ -n "$SNOW_INSTANCE" ]; then
-            curl -s -X PATCH \
-              -u "$SNOW_USER:$SNOW_PASS" \
-              -H "Content-Type: application/json" \
-              -d "{\"state\": \"3\", \"work_notes\": $MSG}" \
-              "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item?sysparm_query=number=$TICKET"
+          if [ -z "$SNOW_INSTANCE" ]; then
+            echo "ServiceNow credentials not configured - skipping update"
+            exit 0
           fi
+
+          echo "Looking up ticket: $TICKET"
+
+          # Step 1: Get the sys_id of the ticket
+          RESPONSE=$(curl -s -X GET \
+            -u "$SNOW_USER:$SNOW_PASS" \
+            -H "Accept: application/json" \
+            "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item?sysparm_query=number=$TICKET&sysparm_fields=sys_id,number,state")
+
+          echo "Lookup response: $RESPONSE"
+
+          SYS_ID=$(echo "$RESPONSE" | jq -r '.result[0].sys_id')
+
+          if [ -z "$SYS_ID" ] || [ "$SYS_ID" == "null" ]; then
+            echo "Could not find ticket $TICKET"
+            exit 0
+          fi
+
+          echo "Found ticket sys_id: $SYS_ID"
+
+          # Step 2: Read the success message
+          MSG=$(cat /tmp/message.txt)
+
+          # Step 3: Update the ticket - Close Complete (state=3) with work notes
+          UPDATE_RESPONSE=$(curl -s -X PATCH \
+            -u "$SNOW_USER:$SNOW_PASS" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -d "{
+              \"state\": \"3\",
+              \"close_notes\": \"Environment provisioned successfully via GitHub Actions.\",
+              \"work_notes\": \"$MSG\"
+            }" \
+            "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item/$SYS_ID")
+
+          echo "Update response: $UPDATE_RESPONSE"
+          echo "Ticket $TICKET closed successfully!"
 
   # ============================================
   # JOB 5: Update ServiceNow - Failure
@@ -416,8 +447,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Update ServiceNow - Failure
-        continue-on-error: true
+      - name: Update ServiceNow - Mark as Failed
         env:
           REQUEST_TYPE: ${{ needs.parse-request.outputs.request_type }}
           PROJECT: ${{ needs.parse-request.outputs.project_name }}
@@ -427,22 +457,58 @@ jobs:
           SNOW_PASS: ${{ secrets.SERVICENOW_PASSWORD }}
           TICKET: ${{ needs.parse-request.outputs.ticket_number }}
         run: |
+          if [ -z "$SNOW_INSTANCE" ]; then
+            echo "ServiceNow credentials not configured - skipping update"
+            exit 0
+          fi
+
+          # Build failure message
           echo "FAILED: Provisioning Failed" > /tmp/message.txt
           echo "" >> /tmp/message.txt
           echo "Request Type: $REQUEST_TYPE" >> /tmp/message.txt
           echo "Project: $PROJECT" >> /tmp/message.txt
           echo "" >> /tmp/message.txt
+          echo "The automated provisioning encountered an error." >> /tmp/message.txt
+          echo "" >> /tmp/message.txt
           echo "Please review the GitHub Actions logs for details:" >> /tmp/message.txt
           echo "$WORKFLOW_URL" >> /tmp/message.txt
           echo "" >> /tmp/message.txt
-          echo "Contact the Cloud Team for assistance." >> /tmp/message.txt
+          echo "Next Steps:" >> /tmp/message.txt
+          echo "1. Review the error logs in GitHub Actions" >> /tmp/message.txt
+          echo "2. Contact the Cloud Team for assistance" >> /tmp/message.txt
+          echo "3. Re-submit the request once the issue is resolved" >> /tmp/message.txt
 
-          MSG_JSON=$(cat /tmp/message.txt | jq -Rs .)
+          echo "Looking up ticket: $TICKET"
 
-          if [ -n "$SNOW_INSTANCE" ]; then
-            curl -s -X PATCH \
-              -u "$SNOW_USER:$SNOW_PASS" \
-              -H "Content-Type: application/json" \
-              -d "{\"state\": \"4\", \"work_notes\": $MSG_JSON}" \
-              "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item?sysparm_query=number=$TICKET"
+          # Step 1: Get the sys_id of the ticket
+          RESPONSE=$(curl -s -X GET \
+            -u "$SNOW_USER:$SNOW_PASS" \
+            -H "Accept: application/json" \
+            "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item?sysparm_query=number=$TICKET&sysparm_fields=sys_id,number,state")
+
+          SYS_ID=$(echo "$RESPONSE" | jq -r '.result[0].sys_id')
+
+          if [ -z "$SYS_ID" ] || [ "$SYS_ID" == "null" ]; then
+            echo "Could not find ticket $TICKET"
+            exit 0
           fi
+
+          echo "Found ticket sys_id: $SYS_ID"
+
+          # Step 2: Read the failure message
+          MSG=$(cat /tmp/message.txt)
+
+          # Step 3: Update the ticket - Closed Incomplete (state=4) with work notes
+          UPDATE_RESPONSE=$(curl -s -X PATCH \
+            -u "$SNOW_USER:$SNOW_PASS" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -d "{
+              \"state\": \"4\",
+              \"close_notes\": \"Provisioning failed - see work notes for details.\",
+              \"work_notes\": \"$MSG\"
+            }" \
+            "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item/$SYS_ID")
+
+          echo "Update response: $UPDATE_RESPONSE"
+          echo "Ticket $TICKET marked as failed."
