@@ -298,9 +298,10 @@ jobs:
       - name: Get Outputs
         id: outputs
         working-directory: ./terraform/environments/dev
-        env:
-          SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
+          # Get subscription ID from global env
+          SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID}"
+
           # Get resource group name
           RG_NAME=$(terraform output -raw resource_group_name 2>/dev/null || echo "")
           echo "resource_group=$RG_NAME" >> $GITHUB_OUTPUT
@@ -373,7 +374,7 @@ jobs:
           VM_NAME: ${{ needs.provision.outputs.vm_name }}
           PUBLIC_IP: ${{ needs.provision.outputs.public_ip }}
           STORAGE_ACCOUNT: ${{ needs.provision.outputs.storage_account }}
-          SUBSCRIPTION_ID: ${{ needs.provision.outputs.subscription_id }}
+          SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           PROJECT: ${{ needs.parse-request.outputs.project_name }}
           WORKLOADS: ${{ needs.parse-request.outputs.workload_types }}
           PI: ${{ needs.parse-request.outputs.principal_investigator }}
@@ -382,84 +383,91 @@ jobs:
           DURATION: ${{ needs.parse-request.outputs.expected_duration }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          # Build Azure Portal URLs
-          PORTAL_BASE="https://portal.azure.com/#@/resource"
-          RG_URL="https://portal.azure.com/#browse/resourcegroups/overview/${RG}"
-          VM_URL="${PORTAL_BASE}/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/overview"
-          STORAGE_URL="${PORTAL_BASE}/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}/overview"
+          # Use ARM_SUBSCRIPTION_ID as fallback
+          if [ -z "$SUBSCRIPTION_ID" ]; then
+            SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID}"
+          fi
 
           if [ "$REQUEST_TYPE" == "standard_research" ]; then
-            echo "========================================" > /tmp/message.txt
-            echo "SUCCESS: Standard Research Environment Ready!" >> /tmp/message.txt
-            echo "========================================" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "PROJECT DETAILS:" >> /tmp/message.txt
-            echo "- Project Name: $PROJECT" >> /tmp/message.txt
-            echo "- Workload Types: $WORKLOADS" >> /tmp/message.txt
-            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "RESOURCES CREATED:" >> /tmp/message.txt
-            echo "- Resource Group: $RG" >> /tmp/message.txt
-            echo "- Virtual Machine: $VM_NAME" >> /tmp/message.txt
-            echo "- Storage Account: $STORAGE_ACCOUNT" >> /tmp/message.txt
-            echo "- Public IP: $PUBLIC_IP" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "AZURE PORTAL LINKS:" >> /tmp/message.txt
-            echo "- Resource Group: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/overview" >> /tmp/message.txt
-            echo "- Virtual Machine: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/overview" >> /tmp/message.txt
-            echo "- Storage Account: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}/overview" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "CONNECTION INSTRUCTIONS:" >> /tmp/message.txt
-            echo "- SSH: ssh researcher@$PUBLIC_IP" >> /tmp/message.txt
-            echo "- Connection details sent to: $PI" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "COST INFORMATION:" >> /tmp/message.txt
-            echo "- Estimated Monthly Cost: 350-650 USD" >> /tmp/message.txt
-            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "GitHub Actions Workflow: $WORKFLOW_URL" >> /tmp/message.txt
+            cat > /tmp/message.txt << ENDMSG
+========================================
+SUCCESS: Standard Research Environment Ready!
+========================================
+
+PROJECT DETAILS:
+  Project Name: $PROJECT
+  Workload Types: $WORKLOADS
+  Cost Center: $COST_CENTER
+
+RESOURCES CREATED:
+  Resource Group: $RG
+  Virtual Machine: $VM_NAME
+  Storage Account: $STORAGE_ACCOUNT
+  Public IP: $PUBLIC_IP
+
+AZURE PORTAL:
+  [Resource Group] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/overview
+
+  [Virtual Machine] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/$VM_NAME/overview
+
+  [Storage Account] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT/overview
+
+CONNECTION:
+  SSH Command: ssh researcher@$PUBLIC_IP
+  Notification sent to: $PI
+
+COST:
+  Estimated Monthly: \$350-650 USD
+  Cost Center: $COST_CENTER
+
+Workflow: $WORKFLOW_URL
+ENDMSG
           else
-            echo "========================================" > /tmp/message.txt
-            echo "SUCCESS: Secure PHI Environment (AVE) Ready!" >> /tmp/message.txt
-            echo "========================================" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "HIPAA-compliant environment provisioned successfully." >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "PROJECT DETAILS:" >> /tmp/message.txt
-            echo "- Project Name: $PROJECT" >> /tmp/message.txt
-            echo "- IRB Number: $IRB" >> /tmp/message.txt
-            echo "- Duration: $DURATION" >> /tmp/message.txt
-            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "RESOURCES CREATED:" >> /tmp/message.txt
-            echo "- Resource Group: $RG" >> /tmp/message.txt
-            echo "- Virtual Machine: $VM_NAME" >> /tmp/message.txt
-            echo "- Storage Account: $STORAGE_ACCOUNT (HIPAA-compliant)" >> /tmp/message.txt
-            echo "- Azure Key Vault: Encryption keys" >> /tmp/message.txt
-            echo "- Log Analytics: Audit logging" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "AZURE PORTAL LINKS:" >> /tmp/message.txt
-            echo "- Resource Group: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/overview" >> /tmp/message.txt
-            echo "- Virtual Machine: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/overview" >> /tmp/message.txt
-            echo "- Storage Account: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}/overview" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "SECURITY FEATURES ENABLED:" >> /tmp/message.txt
-            echo "- Network isolation (no public IP)" >> /tmp/message.txt
-            echo "- Encryption at rest (Customer-managed key)" >> /tmp/message.txt
-            echo "- Encryption in transit (TLS 1.2)" >> /tmp/message.txt
-            echo "- Audit logging (Log Analytics)" >> /tmp/message.txt
-            echo "- HIPAA/HITRUST policy applied" >> /tmp/message.txt
-            echo "- Azure Bastion for secure access" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "ACCESS INSTRUCTIONS:" >> /tmp/message.txt
-            echo "- Access via Azure Bastion only (no direct public access)" >> /tmp/message.txt
-            echo "- Connection details sent to: $PI" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "COST INFORMATION:" >> /tmp/message.txt
-            echo "- Estimated Monthly Cost: 4200-8500 USD" >> /tmp/message.txt
-            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
-            echo "" >> /tmp/message.txt
-            echo "GitHub Actions Workflow: $WORKFLOW_URL" >> /tmp/message.txt
+            cat > /tmp/message.txt << ENDMSG
+========================================
+SUCCESS: Secure PHI Environment (AVE) Ready!
+========================================
+
+HIPAA-compliant environment provisioned successfully.
+
+PROJECT DETAILS:
+  Project Name: $PROJECT
+  IRB Number: $IRB
+  Duration: $DURATION
+  Cost Center: $COST_CENTER
+
+RESOURCES CREATED:
+  Resource Group: $RG
+  Virtual Machine: $VM_NAME
+  Storage Account: $STORAGE_ACCOUNT (HIPAA-compliant)
+  Azure Key Vault: Encryption keys
+  Log Analytics: Audit logging
+
+AZURE PORTAL:
+  [Resource Group] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/overview
+
+  [Virtual Machine] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/$VM_NAME/overview
+
+  [Storage Account] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT/overview
+
+SECURITY FEATURES ENABLED:
+  - Network isolation (no public IP)
+  - Encryption at rest (Customer-managed key)
+  - Encryption in transit (TLS 1.2)
+  - Audit logging (Log Analytics)
+  - HIPAA/HITRUST policy applied
+  - Azure Bastion for secure access
+
+ACCESS INSTRUCTIONS:
+  Access via Azure Bastion only (no direct public access)
+  Connection details sent to: $PI
+
+COST:
+  Estimated Monthly: \$4,200-8,500 USD
+  Cost Center: $COST_CENTER
+
+Workflow: $WORKFLOW_URL
+ENDMSG
           fi
 
       - name: Update ServiceNow - Close Ticket as Complete
