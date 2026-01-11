@@ -298,6 +298,8 @@ jobs:
       - name: Get Outputs
         id: outputs
         working-directory: ./terraform/environments/dev
+        env:
+          SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           # Get resource group name
           RG_NAME=$(terraform output -raw resource_group_name 2>/dev/null || echo "")
@@ -322,8 +324,16 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
           # Get subscription ID for portal URLs
-          SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID}"
           echo "subscription_id=$SUBSCRIPTION_ID" >> $GITHUB_OUTPUT
+
+          # Debug: Print all outputs
+          echo "=== DEBUG: Terraform Outputs ==="
+          echo "Resource Group: $RG_NAME"
+          echo "VM Name: $VM_NAME"
+          echo "Public IP: $PUBLIC_IP"
+          echo "Storage Account: $STORAGE_NAME"
+          echo "Subscription ID: $SUBSCRIPTION_ID"
+          echo "================================"
 
       - name: Display Provisioning Results
         working-directory: ./terraform/environments/dev

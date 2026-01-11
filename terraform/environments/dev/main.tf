@@ -68,7 +68,7 @@ variable "cost_center" {
 
 variable "location" {
   type        = string
-  default     = "eastus"
+  default     = "northeurope"
   description = "Azure region"
 }
 
@@ -158,6 +158,21 @@ output "request_type" {
 output "resource_group_name" {
   description = "Name of the resource group"
   value       = var.request_type == "standard_research" ? module.standard_research[0].resource_group_name : module.phi_ave[0].resource_group_name
+}
+
+output "vm_name" {
+  description = "Name of the virtual machine"
+  value       = var.request_type == "standard_research" ? module.standard_research[0].vm_name : module.phi_ave[0].vm_name
+}
+
+output "public_ip" {
+  description = "Public IP address (N/A for PHI)"
+  value       = var.request_type == "standard_research" ? module.standard_research[0].public_ip : "N/A - Private Only"
+}
+
+output "storage_account_name" {
+  description = "Name of the storage account"
+  value       = var.request_type == "standard_research" ? module.standard_research[0].storage_account_name : module.phi_ave[0].storage_account_name
 }
 
 output "connection_info" {
