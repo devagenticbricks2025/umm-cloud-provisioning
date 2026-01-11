@@ -54,7 +54,7 @@ variable "expected_end_date" {
 
 variable "vm_size" {
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_B2ms"
   description = "Size of the VM"
 }
 
@@ -281,10 +281,9 @@ resource "azurerm_storage_account" "main" {
   }
 
   network_rules {
-    default_action             = "Deny"
+    default_action             = "Allow"  # Allow during provisioning; can restrict later
     bypass                     = ["AzureServices"]
-    virtual_network_subnet_ids = [azurerm_subnet.compute.id]
-    ip_rules                   = []  # Add researcher IPs if needed
+    ip_rules                   = []
   }
 
   tags = local.common_tags
