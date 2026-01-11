@@ -389,85 +389,85 @@ jobs:
           fi
 
           if [ "$REQUEST_TYPE" == "standard_research" ]; then
-            cat > /tmp/message.txt << ENDMSG
-========================================
-SUCCESS: Standard Research Environment Ready!
-========================================
+            cat > /tmp/message.txt <<EOF
+          ========================================
+          SUCCESS: Standard Research Environment Ready!
+          ========================================
 
-PROJECT DETAILS:
-  Project Name: $PROJECT
-  Workload Types: $WORKLOADS
-  Cost Center: $COST_CENTER
+          PROJECT DETAILS:
+            Project Name: $PROJECT
+            Workload Types: $WORKLOADS
+            Cost Center: $COST_CENTER
 
-RESOURCES CREATED:
-  Resource Group: $RG
-  Virtual Machine: $VM_NAME
-  Storage Account: $STORAGE_ACCOUNT
-  Public IP: $PUBLIC_IP
+          RESOURCES CREATED:
+            Resource Group: $RG
+            Virtual Machine: $VM_NAME
+            Storage Account: $STORAGE_ACCOUNT
+            Public IP: $PUBLIC_IP
 
-AZURE PORTAL:
-  [Resource Group] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/overview
+          AZURE PORTAL:
+            [Resource Group] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/overview
 
-  [Virtual Machine] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/$VM_NAME/overview
+            [Virtual Machine] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/$VM_NAME/overview
 
-  [Storage Account] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT/overview
+            [Storage Account] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT/overview
 
-CONNECTION:
-  SSH Command: ssh researcher@$PUBLIC_IP
-  Notification sent to: $PI
+          CONNECTION:
+            SSH Command: ssh researcher@$PUBLIC_IP
+            Notification sent to: $PI
 
-COST:
-  Estimated Monthly: \$350-650 USD
-  Cost Center: $COST_CENTER
+          COST:
+            Estimated Monthly: \$350-650 USD
+            Cost Center: $COST_CENTER
 
-Workflow: $WORKFLOW_URL
-ENDMSG
+          Workflow: $WORKFLOW_URL
+          EOF
           else
-            cat > /tmp/message.txt << ENDMSG
-========================================
-SUCCESS: Secure PHI Environment (AVE) Ready!
-========================================
+            cat > /tmp/message.txt <<EOF
+          ========================================
+          SUCCESS: Secure PHI Environment (AVE) Ready!
+          ========================================
 
-HIPAA-compliant environment provisioned successfully.
+          HIPAA-compliant environment provisioned successfully.
 
-PROJECT DETAILS:
-  Project Name: $PROJECT
-  IRB Number: $IRB
-  Duration: $DURATION
-  Cost Center: $COST_CENTER
+          PROJECT DETAILS:
+            Project Name: $PROJECT
+            IRB Number: $IRB
+            Duration: $DURATION
+            Cost Center: $COST_CENTER
 
-RESOURCES CREATED:
-  Resource Group: $RG
-  Virtual Machine: $VM_NAME
-  Storage Account: $STORAGE_ACCOUNT (HIPAA-compliant)
-  Azure Key Vault: Encryption keys
-  Log Analytics: Audit logging
+          RESOURCES CREATED:
+            Resource Group: $RG
+            Virtual Machine: $VM_NAME
+            Storage Account: $STORAGE_ACCOUNT (HIPAA-compliant)
+            Azure Key Vault: Encryption keys
+            Log Analytics: Audit logging
 
-AZURE PORTAL:
-  [Resource Group] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/overview
+          AZURE PORTAL:
+            [Resource Group] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/overview
 
-  [Virtual Machine] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/$VM_NAME/overview
+            [Virtual Machine] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/$VM_NAME/overview
 
-  [Storage Account] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT/overview
+            [Storage Account] https://portal.azure.com/#resource/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT/overview
 
-SECURITY FEATURES ENABLED:
-  - Network isolation (no public IP)
-  - Encryption at rest (Customer-managed key)
-  - Encryption in transit (TLS 1.2)
-  - Audit logging (Log Analytics)
-  - HIPAA/HITRUST policy applied
-  - Azure Bastion for secure access
+          SECURITY FEATURES ENABLED:
+            - Network isolation (no public IP)
+            - Encryption at rest (Customer-managed key)
+            - Encryption in transit (TLS 1.2)
+            - Audit logging (Log Analytics)
+            - HIPAA/HITRUST policy applied
+            - Azure Bastion for secure access
 
-ACCESS INSTRUCTIONS:
-  Access via Azure Bastion only (no direct public access)
-  Connection details sent to: $PI
+          ACCESS INSTRUCTIONS:
+            Access via Azure Bastion only (no direct public access)
+            Connection details sent to: $PI
 
-COST:
-  Estimated Monthly: \$4,200-8,500 USD
-  Cost Center: $COST_CENTER
+          COST:
+            Estimated Monthly: \$4,200-8,500 USD
+            Cost Center: $COST_CENTER
 
-Workflow: $WORKFLOW_URL
-ENDMSG
+          Workflow: $WORKFLOW_URL
+          EOF
           fi
 
       - name: Update ServiceNow - Close Ticket as Complete
