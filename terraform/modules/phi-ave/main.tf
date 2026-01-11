@@ -63,7 +63,7 @@ variable "data_retention" {
 
 variable "vm_size" {
   type        = string
-  default     = "Standard_B2ms"
+  default     = "Standard_D2s_v3"
   description = "Size of the VM for remote desktop access"
 }
 
@@ -75,7 +75,7 @@ variable "databricks_sku" {
 
 variable "location" {
   type        = string
-  default     = "eastus"
+  default     = "northeurope"
   description = "Azure region"
 }
 

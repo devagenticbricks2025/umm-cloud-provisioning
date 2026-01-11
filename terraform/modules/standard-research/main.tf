@@ -54,7 +54,7 @@ variable "expected_end_date" {
 
 variable "vm_size" {
   type        = string
-  default     = "Standard_B2ms"
+  default     = "Standard_D2s_v3"
   description = "Size of the VM"
 }
 
@@ -71,7 +71,7 @@ variable "os_type" {
 
 variable "location" {
   type        = string
-  default     = "eastus"
+  default     = "northeurope"
   description = "Azure region"
 }
 
