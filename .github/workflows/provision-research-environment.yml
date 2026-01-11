@@ -108,23 +108,39 @@ jobs:
             echo "Source: ServiceNow Webhook"
             PAYLOAD='${{ toJson(github.event.client_payload) }}'
 
-            # Common fields
-            echo "ticket_number=$(echo $PAYLOAD | jq -r '.ticket_number // \"UNKNOWN\"')" >> $GITHUB_OUTPUT
-            echo "request_type=$(echo $PAYLOAD | jq -r '.request_type // \"standard_research\"')" >> $GITHUB_OUTPUT
-            echo "project_name=$(echo $PAYLOAD | jq -r '.project_name // \"research-project\"')" >> $GITHUB_OUTPUT
-            echo "principal_investigator=$(echo $PAYLOAD | jq -r '.principal_investigator // \"unknown@umich.edu\"')" >> $GITHUB_OUTPUT
-            echo "department=$(echo $PAYLOAD | jq -r '.department // \"research\"')" >> $GITHUB_OUTPUT
-            echo "cost_center=$(echo $PAYLOAD | jq -r '.cost_center // \"CC-DEFAULT\"')" >> $GITHUB_OUTPUT
-            echo "workload_types=$(echo $PAYLOAD | jq -r '.workload_types // \"general\"')" >> $GITHUB_OUTPUT
-            echo "environment=$(echo $PAYLOAD | jq -r '.environment // \"dev\"')" >> $GITHUB_OUTPUT
-            echo "security_level=$(echo $PAYLOAD | jq -r '.security_level // \"standard\"')" >> $GITHUB_OUTPUT
-            echo "expected_end_date=$(echo $PAYLOAD | jq -r '.expected_end_date // \"\"')" >> $GITHUB_OUTPUT
+            # Common fields - parse each separately to avoid quoting issues
+            TICKET=$(echo "$PAYLOAD" | jq -r '.ticket_number // "UNKNOWN"')
+            REQUEST_TYPE=$(echo "$PAYLOAD" | jq -r '.request_type // "standard_research"')
+            PROJECT=$(echo "$PAYLOAD" | jq -r '.project_name // "research-project"')
+            PI=$(echo "$PAYLOAD" | jq -r '.principal_investigator // "unknown@umich.edu"')
+            DEPT=$(echo "$PAYLOAD" | jq -r '.department // "research"')
+            COST=$(echo "$PAYLOAD" | jq -r '.cost_center // "CC-DEFAULT"')
+            WORKLOADS=$(echo "$PAYLOAD" | jq -r '.workload_types // "general"')
+            ENV=$(echo "$PAYLOAD" | jq -r '.environment // "dev"')
+            SECURITY=$(echo "$PAYLOAD" | jq -r '.security_level // "standard"')
+            END_DATE=$(echo "$PAYLOAD" | jq -r '.expected_end_date // ""')
 
             # PHI-specific fields
-            echo "irb_number=$(echo $PAYLOAD | jq -r '.irb_number // \"\"')" >> $GITHUB_OUTPUT
-            echo "access_method=$(echo $PAYLOAD | jq -r '.access_method // \"remote_desktop\"')" >> $GITHUB_OUTPUT
-            echo "expected_duration=$(echo $PAYLOAD | jq -r '.expected_duration // \"6_months\"')" >> $GITHUB_OUTPUT
-            echo "data_retention=$(echo $PAYLOAD | jq -r '.data_retention // \"90_days\"')" >> $GITHUB_OUTPUT
+            IRB=$(echo "$PAYLOAD" | jq -r '.irb_number // ""')
+            ACCESS=$(echo "$PAYLOAD" | jq -r '.access_method // "remote_desktop"')
+            DURATION=$(echo "$PAYLOAD" | jq -r '.expected_duration // "6_months"')
+            RETENTION=$(echo "$PAYLOAD" | jq -r '.data_retention // "90_days"')
+
+            # Write to outputs
+            echo "ticket_number=$TICKET" >> $GITHUB_OUTPUT
+            echo "request_type=$REQUEST_TYPE" >> $GITHUB_OUTPUT
+            echo "project_name=$PROJECT" >> $GITHUB_OUTPUT
+            echo "principal_investigator=$PI" >> $GITHUB_OUTPUT
+            echo "department=$DEPT" >> $GITHUB_OUTPUT
+            echo "cost_center=$COST" >> $GITHUB_OUTPUT
+            echo "workload_types=$WORKLOADS" >> $GITHUB_OUTPUT
+            echo "environment=$ENV" >> $GITHUB_OUTPUT
+            echo "security_level=$SECURITY" >> $GITHUB_OUTPUT
+            echo "expected_end_date=$END_DATE" >> $GITHUB_OUTPUT
+            echo "irb_number=$IRB" >> $GITHUB_OUTPUT
+            echo "access_method=$ACCESS" >> $GITHUB_OUTPUT
+            echo "expected_duration=$DURATION" >> $GITHUB_OUTPUT
+            echo "data_retention=$RETENTION" >> $GITHUB_OUTPUT
 
           else
             echo "Source: Manual Workflow Dispatch"
