@@ -258,7 +258,9 @@ resource "azurerm_network_interface" "main" {
 # ============================================
 
 resource "azurerm_storage_account" "main" {
-  name                     = "stresearch${replace(var.resource_suffix, "-", "")}${substr(md5(var.resource_suffix), 0, 4)}"
+  # Storage account name: max 24 chars, lowercase alphanumeric only
+  # Format: st (2) + truncated suffix (14) + md5 hash (8) = 24 chars max
+  name                     = "st${substr(replace(var.resource_suffix, "-", ""), 0, 14)}${substr(md5(var.resource_suffix), 0, 8)}"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"

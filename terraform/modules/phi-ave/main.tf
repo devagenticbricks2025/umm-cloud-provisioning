@@ -415,7 +415,9 @@ resource "azurerm_bastion_host" "phi" {
 # ============================================
 
 resource "azurerm_storage_account" "phi" {
-  name                     = "stphi${replace(var.resource_suffix, "-", "")}${substr(md5(var.resource_suffix), 0, 4)}"
+  # Storage account name: max 24 chars, lowercase alphanumeric only
+  # Format: stphi (5) + truncated suffix (11) + md5 hash (8) = 24 chars max
+  name                     = "stphi${substr(replace(var.resource_suffix, "-", ""), 0, 11)}${substr(md5(var.resource_suffix), 0, 8)}"
   resource_group_name      = azurerm_resource_group.phi.name
   location                 = azurerm_resource_group.phi.location
   account_tier             = "Standard"
