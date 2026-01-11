@@ -419,19 +419,24 @@ jobs:
 
           echo "Found ticket sys_id: $SYS_ID"
 
-          # Step 2: Read the success message
-          MSG=$(cat /tmp/message.txt)
+          # Step 2: Read the success message and escape it for JSON
+          MSG_ESCAPED=$(cat /tmp/message.txt | jq -Rs .)
 
-          # Step 3: Update the ticket - Close Complete (state=3) with work notes
+          # Step 3: Build JSON payload properly
+          JSON_PAYLOAD=$(jq -n \
+            --arg state "3" \
+            --arg close_notes "Environment provisioned successfully via GitHub Actions." \
+            --argjson work_notes "$MSG_ESCAPED" \
+            '{state: $state, close_notes: $close_notes, work_notes: $work_notes}')
+
+          echo "Payload: $JSON_PAYLOAD"
+
+          # Step 4: Update the ticket - Close Complete (state=3) with work notes
           UPDATE_RESPONSE=$(curl -s -X PATCH \
             -u "$SNOW_USER:$SNOW_PASS" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json" \
-            -d "{
-              \"state\": \"3\",
-              \"close_notes\": \"Environment provisioned successfully via GitHub Actions.\",
-              \"work_notes\": \"$MSG\"
-            }" \
+            -d "$JSON_PAYLOAD" \
             "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item/$SYS_ID")
 
           echo "Update response: $UPDATE_RESPONSE"
@@ -495,19 +500,24 @@ jobs:
 
           echo "Found ticket sys_id: $SYS_ID"
 
-          # Step 2: Read the failure message
-          MSG=$(cat /tmp/message.txt)
+          # Step 2: Read the failure message and escape it for JSON
+          MSG_ESCAPED=$(cat /tmp/message.txt | jq -Rs .)
 
-          # Step 3: Update the ticket - Closed Incomplete (state=4) with work notes
+          # Step 3: Build JSON payload properly
+          JSON_PAYLOAD=$(jq -n \
+            --arg state "4" \
+            --arg close_notes "Provisioning failed - see work notes for details." \
+            --argjson work_notes "$MSG_ESCAPED" \
+            '{state: $state, close_notes: $close_notes, work_notes: $work_notes}')
+
+          echo "Payload: $JSON_PAYLOAD"
+
+          # Step 4: Update the ticket - Closed Incomplete (state=4) with work notes
           UPDATE_RESPONSE=$(curl -s -X PATCH \
             -u "$SNOW_USER:$SNOW_PASS" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json" \
-            -d "{
-              \"state\": \"4\",
-              \"close_notes\": \"Provisioning failed - see work notes for details.\",
-              \"work_notes\": \"$MSG\"
-            }" \
+            -d "$JSON_PAYLOAD" \
             "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item/$SYS_ID")
 
           echo "Update response: $UPDATE_RESPONSE"
