@@ -242,6 +242,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       resource_group: ${{ steps.outputs.outputs.resource_group }}
+      vm_name: ${{ steps.outputs.outputs.vm_name }}
+      public_ip: ${{ steps.outputs.outputs.public_ip }}
+      storage_account: ${{ steps.outputs.outputs.storage_account }}
+      subscription_id: ${{ steps.outputs.outputs.subscription_id }}
       connection_info: ${{ steps.outputs.outputs.connection_info }}
 
     steps:
@@ -295,13 +299,31 @@ jobs:
         id: outputs
         working-directory: ./terraform/environments/dev
         run: |
-          echo "resource_group=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+          # Get resource group name
+          RG_NAME=$(terraform output -raw resource_group_name 2>/dev/null || echo "")
+          echo "resource_group=$RG_NAME" >> $GITHUB_OUTPUT
+
+          # Get VM name
+          VM_NAME=$(terraform output -raw vm_name 2>/dev/null || echo "")
+          echo "vm_name=$VM_NAME" >> $GITHUB_OUTPUT
+
+          # Get public IP
+          PUBLIC_IP=$(terraform output -raw public_ip 2>/dev/null || echo "N/A")
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+
+          # Get storage account name
+          STORAGE_NAME=$(terraform output -raw storage_account_name 2>/dev/null || echo "")
+          echo "storage_account=$STORAGE_NAME" >> $GITHUB_OUTPUT
 
           # Get connection info as JSON
-          CONNECTION_INFO=$(terraform output -json connection_info)
+          CONNECTION_INFO=$(terraform output -json connection_info 2>/dev/null || echo "{}")
           echo "connection_info<<EOF" >> $GITHUB_OUTPUT
           echo "$CONNECTION_INFO" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+          # Get subscription ID for portal URLs
+          SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID}"
+          echo "subscription_id=$SUBSCRIPTION_ID" >> $GITHUB_OUTPUT
 
       - name: Display Provisioning Results
         working-directory: ./terraform/environments/dev
@@ -338,6 +360,10 @@ jobs:
         env:
           REQUEST_TYPE: ${{ needs.parse-request.outputs.request_type }}
           RG: ${{ needs.provision.outputs.resource_group }}
+          VM_NAME: ${{ needs.provision.outputs.vm_name }}
+          PUBLIC_IP: ${{ needs.provision.outputs.public_ip }}
+          STORAGE_ACCOUNT: ${{ needs.provision.outputs.storage_account }}
+          SUBSCRIPTION_ID: ${{ needs.provision.outputs.subscription_id }}
           PROJECT: ${{ needs.parse-request.outputs.project_name }}
           WORKLOADS: ${{ needs.parse-request.outputs.workload_types }}
           PI: ${{ needs.parse-request.outputs.principal_investigator }}
@@ -346,33 +372,68 @@ jobs:
           DURATION: ${{ needs.parse-request.outputs.expected_duration }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # Build Azure Portal URLs
+          PORTAL_BASE="https://portal.azure.com/#@/resource"
+          RG_URL="https://portal.azure.com/#browse/resourcegroups/overview/${RG}"
+          VM_URL="${PORTAL_BASE}/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/overview"
+          STORAGE_URL="${PORTAL_BASE}/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}/overview"
+
           if [ "$REQUEST_TYPE" == "standard_research" ]; then
-            echo "SUCCESS: Standard Research Environment Ready!" > /tmp/message.txt
+            echo "========================================" > /tmp/message.txt
+            echo "SUCCESS: Standard Research Environment Ready!" >> /tmp/message.txt
+            echo "========================================" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Environment Details:" >> /tmp/message.txt
+            echo "PROJECT DETAILS:" >> /tmp/message.txt
+            echo "- Project Name: $PROJECT" >> /tmp/message.txt
+            echo "- Workload Types: $WORKLOADS" >> /tmp/message.txt
+            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "RESOURCES CREATED:" >> /tmp/message.txt
             echo "- Resource Group: $RG" >> /tmp/message.txt
-            echo "- Project: $PROJECT" >> /tmp/message.txt
-            echo "- Workloads: $WORKLOADS" >> /tmp/message.txt
+            echo "- Virtual Machine: $VM_NAME" >> /tmp/message.txt
+            echo "- Storage Account: $STORAGE_ACCOUNT" >> /tmp/message.txt
+            echo "- Public IP: $PUBLIC_IP" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Access Instructions:" >> /tmp/message.txt
-            echo "Connection details sent to $PI" >> /tmp/message.txt
+            echo "AZURE PORTAL LINKS:" >> /tmp/message.txt
+            echo "- Resource Group: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/overview" >> /tmp/message.txt
+            echo "- Virtual Machine: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/overview" >> /tmp/message.txt
+            echo "- Storage Account: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}/overview" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Estimated Monthly Cost: 350-650 USD" >> /tmp/message.txt
-            echo "Cost Center: $COST_CENTER" >> /tmp/message.txt
+            echo "CONNECTION INSTRUCTIONS:" >> /tmp/message.txt
+            echo "- SSH: ssh researcher@$PUBLIC_IP" >> /tmp/message.txt
+            echo "- Connection details sent to: $PI" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Workflow: $WORKFLOW_URL" >> /tmp/message.txt
+            echo "COST INFORMATION:" >> /tmp/message.txt
+            echo "- Estimated Monthly Cost: 350-650 USD" >> /tmp/message.txt
+            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "GitHub Actions Workflow: $WORKFLOW_URL" >> /tmp/message.txt
           else
-            echo "SUCCESS: Secure PHI Environment (AVE) Ready!" > /tmp/message.txt
+            echo "========================================" > /tmp/message.txt
+            echo "SUCCESS: Secure PHI Environment (AVE) Ready!" >> /tmp/message.txt
+            echo "========================================" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "HIPAA-compliant environment provisioned." >> /tmp/message.txt
+            echo "HIPAA-compliant environment provisioned successfully." >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Environment Details:" >> /tmp/message.txt
-            echo "- Resource Group: $RG" >> /tmp/message.txt
-            echo "- Project: $PROJECT" >> /tmp/message.txt
-            echo "- IRB: $IRB" >> /tmp/message.txt
+            echo "PROJECT DETAILS:" >> /tmp/message.txt
+            echo "- Project Name: $PROJECT" >> /tmp/message.txt
+            echo "- IRB Number: $IRB" >> /tmp/message.txt
             echo "- Duration: $DURATION" >> /tmp/message.txt
+            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Security Features Enabled:" >> /tmp/message.txt
+            echo "RESOURCES CREATED:" >> /tmp/message.txt
+            echo "- Resource Group: $RG" >> /tmp/message.txt
+            echo "- Virtual Machine: $VM_NAME" >> /tmp/message.txt
+            echo "- Storage Account: $STORAGE_ACCOUNT (HIPAA-compliant)" >> /tmp/message.txt
+            echo "- Azure Key Vault: Encryption keys" >> /tmp/message.txt
+            echo "- Log Analytics: Audit logging" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "AZURE PORTAL LINKS:" >> /tmp/message.txt
+            echo "- Resource Group: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/overview" >> /tmp/message.txt
+            echo "- Virtual Machine: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/overview" >> /tmp/message.txt
+            echo "- Storage Account: https://portal.azure.com/#@/resource/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}/overview" >> /tmp/message.txt
+            echo "" >> /tmp/message.txt
+            echo "SECURITY FEATURES ENABLED:" >> /tmp/message.txt
             echo "- Network isolation (no public IP)" >> /tmp/message.txt
             echo "- Encryption at rest (Customer-managed key)" >> /tmp/message.txt
             echo "- Encryption in transit (TLS 1.2)" >> /tmp/message.txt
@@ -380,12 +441,15 @@ jobs:
             echo "- HIPAA/HITRUST policy applied" >> /tmp/message.txt
             echo "- Azure Bastion for secure access" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Access: Via Azure Bastion only." >> /tmp/message.txt
+            echo "ACCESS INSTRUCTIONS:" >> /tmp/message.txt
+            echo "- Access via Azure Bastion only (no direct public access)" >> /tmp/message.txt
+            echo "- Connection details sent to: $PI" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Estimated Monthly Cost: 4200-8500 USD" >> /tmp/message.txt
-            echo "Cost Center: $COST_CENTER" >> /tmp/message.txt
+            echo "COST INFORMATION:" >> /tmp/message.txt
+            echo "- Estimated Monthly Cost: 4200-8500 USD" >> /tmp/message.txt
+            echo "- Cost Center: $COST_CENTER" >> /tmp/message.txt
             echo "" >> /tmp/message.txt
-            echo "Workflow: $WORKFLOW_URL" >> /tmp/message.txt
+            echo "GitHub Actions Workflow: $WORKFLOW_URL" >> /tmp/message.txt
           fi
 
       - name: Update ServiceNow - Close Ticket as Complete
