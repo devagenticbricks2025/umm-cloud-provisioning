@@ -185,7 +185,9 @@ resource "azurerm_log_analytics_solution" "security_center" {
 # ============================================
 
 resource "azurerm_key_vault" "phi" {
-  name                = "kv-${replace(local.resource_prefix, "-", "")}${substr(md5(var.resource_suffix), 0, 4)}"
+  # Key Vault name: 3-24 chars, alphanumeric and dashes only
+  # Format: kv (2) + truncated suffix (14) + md5 hash (8) = 24 chars max
+  name                = "kv${substr(replace(var.resource_suffix, "-", ""), 0, 14)}${substr(md5(var.resource_suffix), 0, 8)}"
   location            = azurerm_resource_group.phi.location
   resource_group_name = azurerm_resource_group.phi.name
   tenant_id           = data.azurerm_client_config.current.tenant_id
@@ -270,12 +272,12 @@ resource "azurerm_subnet" "private_endpoints" {
   private_endpoint_network_policies = "Disabled"
 }
 
-# Azure Bastion Subnet (for secure access)
-resource "azurerm_subnet" "bastion" {
-  name                 = "AzureBastionSubnet" # Must be this exact name
+# AVD Subnet (for Azure Virtual Desktop session hosts)
+resource "azurerm_subnet" "avd" {
+  name                 = "snet-avd"
   resource_group_name  = azurerm_resource_group.phi.name
   virtual_network_name = azurerm_virtual_network.phi.name
-  address_prefixes     = ["10.200.3.0/26"]
+  address_prefixes     = ["10.200.3.0/24"]
 }
 
 # Databricks Subnets (if needed)
@@ -341,16 +343,16 @@ resource "azurerm_network_security_group" "compute" {
     destination_address_prefix = "*"
   }
 
-  # Allow Bastion RDP/SSH
+  # Allow AVD RDP/SSH from AVD subnet
   security_rule {
-    name                       = "AllowBastionInbound"
+    name                       = "AllowAVDInbound"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_ranges    = ["22", "3389"]
-    source_address_prefix      = "10.200.3.0/26" # Bastion subnet
+    source_address_prefix      = "10.200.3.0/24" # AVD subnet
     destination_address_prefix = "*"
   }
 
@@ -376,38 +378,122 @@ resource "azurerm_subnet_network_security_group_association" "compute" {
 }
 
 # ============================================
-# Azure Bastion (Secure Access)
+# Azure Virtual Desktop (Secure Remote Access)
 # ============================================
 
-resource "azurerm_public_ip" "bastion" {
-  name                = "pip-${local.resource_prefix}-bastion"
-  location            = azurerm_resource_group.phi.location
-  resource_group_name = azurerm_resource_group.phi.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
+# AVD Host Pool - Pooled for cost efficiency, Personal for dedicated VMs
+resource "azurerm_virtual_desktop_host_pool" "phi" {
+  name                     = "hp-${local.resource_prefix}"
+  location                 = azurerm_resource_group.phi.location
+  resource_group_name      = azurerm_resource_group.phi.name
+  type                     = "Pooled"
+  load_balancer_type       = "BreadthFirst"
+  friendly_name            = "PHI Research - ${var.project_name}"
+  description              = "HIPAA-compliant research environment for ${var.project_name}"
+  maximum_sessions_allowed = 10
+  start_vm_on_connect      = true
+
+  # Session host configuration
+  custom_rdp_properties = "audiocapturemode:i:1;audiomode:i:0;drivestoredirect:s:;redirectclipboard:i:0;redirectprinters:i:0;devicestoredirect:s:;camerastoredirect:s:;redirectcomports:i:0;redirectsmartcards:i:0;usbdevicestoredirect:s:;enablecredsspsupport:i:1;"
+
+  scheduled_agent_updates {
+    enabled = true
+    schedule {
+      day_of_week = "Saturday"
+      hour_of_day = 2
+    }
+  }
 
   tags = local.common_tags
 }
 
-resource "azurerm_bastion_host" "phi" {
-  name                = "bastion-${local.resource_prefix}"
+# AVD Host Pool Registration Token
+resource "azurerm_virtual_desktop_host_pool_registration_info" "phi" {
+  hostpool_id     = azurerm_virtual_desktop_host_pool.phi.id
+  expiration_date = timeadd(timestamp(), "24h")
+}
+
+# AVD Application Group - Desktop type for full desktop experience
+resource "azurerm_virtual_desktop_application_group" "phi" {
+  name                = "dag-${local.resource_prefix}"
   location            = azurerm_resource_group.phi.location
   resource_group_name = azurerm_resource_group.phi.name
-  sku                 = "Standard"
+  type                = "Desktop"
+  host_pool_id        = azurerm_virtual_desktop_host_pool.phi.id
+  friendly_name       = "PHI Research Desktop"
+  description         = "Secure desktop for PHI research - ${var.project_name}"
 
-  copy_paste_enabled     = true
-  file_copy_enabled      = true
-  tunneling_enabled      = true
-  ip_connect_enabled     = true
-  shareable_link_enabled = false # Disable for security
+  tags = local.common_tags
+}
 
-  ip_configuration {
-    name                 = "configuration"
-    subnet_id            = azurerm_subnet.bastion.id
-    public_ip_address_id = azurerm_public_ip.bastion.id
+# AVD Workspace
+resource "azurerm_virtual_desktop_workspace" "phi" {
+  name                = "ws-${local.resource_prefix}"
+  location            = azurerm_resource_group.phi.location
+  resource_group_name = azurerm_resource_group.phi.name
+  friendly_name       = "PHI Research Workspace"
+  description         = "HIPAA-compliant workspace for ${var.project_name}"
+
+  tags = local.common_tags
+}
+
+# Associate Application Group with Workspace
+resource "azurerm_virtual_desktop_workspace_application_group_association" "phi" {
+  workspace_id         = azurerm_virtual_desktop_workspace.phi.id
+  application_group_id = azurerm_virtual_desktop_application_group.phi.id
+}
+
+# AVD NSG for session hosts
+resource "azurerm_network_security_group" "avd" {
+  name                = "nsg-${local.resource_prefix}-avd"
+  location            = azurerm_resource_group.phi.location
+  resource_group_name = azurerm_resource_group.phi.name
+
+  # Allow outbound to AVD service
+  security_rule {
+    name                       = "AllowAVDOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "WindowsVirtualDesktop"
+  }
+
+  # Allow outbound to Azure AD
+  security_rule {
+    name                       = "AllowAzureADOutbound"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "AzureActiveDirectory"
+  }
+
+  # Allow outbound to Azure Monitor
+  security_rule {
+    name                       = "AllowAzureMonitorOutbound"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "AzureMonitor"
   }
 
   tags = local.common_tags
+}
+
+resource "azurerm_subnet_network_security_group_association" "avd" {
+  subnet_id                 = azurerm_subnet.avd.id
+  network_security_group_id = azurerm_network_security_group.avd.id
 }
 
 # ============================================
@@ -739,14 +825,25 @@ output "vnet_id" {
   value       = azurerm_virtual_network.phi.id
 }
 
-output "bastion_name" {
-  description = "Name of the Azure Bastion host"
-  value       = azurerm_bastion_host.phi.name
+output "avd_host_pool_name" {
+  description = "Name of the AVD Host Pool"
+  value       = azurerm_virtual_desktop_host_pool.phi.name
 }
 
-output "bastion_dns_name" {
-  description = "DNS name of the Azure Bastion host"
-  value       = azurerm_bastion_host.phi.dns_name
+output "avd_workspace_name" {
+  description = "Name of the AVD Workspace"
+  value       = azurerm_virtual_desktop_workspace.phi.name
+}
+
+output "avd_application_group_name" {
+  description = "Name of the AVD Application Group"
+  value       = azurerm_virtual_desktop_application_group.phi.name
+}
+
+output "avd_registration_token" {
+  description = "AVD Host Pool registration token (sensitive)"
+  value       = azurerm_virtual_desktop_host_pool_registration_info.phi.token
+  sensitive   = true
 }
 
 output "vm_name" {
@@ -786,7 +883,7 @@ output "security_summary" {
     network_isolation     = true
     private_endpoints     = true
     no_public_ips         = true
-    bastion_access_only   = true
+    avd_access_only       = true
     encryption_at_rest    = "Customer-managed key (Key Vault)"
     encryption_in_transit = "TLS 1.2 required"
     audit_logging         = "Log Analytics (${local.retention_days} days retention)"
@@ -797,5 +894,5 @@ output "security_summary" {
 
 output "access_instructions" {
   description = "Instructions for accessing the environment"
-  value       = "PHI Environment - Access via Azure Bastion only. VM: ${local.deploy_vm ? azurerm_linux_virtual_machine.phi[0].name : "N/A"} (user: phiadmin). Databricks: ${local.deploy_databricks ? azurerm_databricks_workspace.phi[0].workspace_url : "N/A"}. All access is logged and audited."
+  value       = "PHI Environment - Access via Azure Virtual Desktop. Go to https://client.wvd.microsoft.com or use the Windows/Mac AVD client. Workspace: ${azurerm_virtual_desktop_workspace.phi.name}. VM: ${local.deploy_vm ? azurerm_linux_virtual_machine.phi[0].name : "N/A"} (user: phiadmin). Databricks: ${local.deploy_databricks ? azurerm_databricks_workspace.phi[0].workspace_url : "N/A"}. All access is logged and audited."
 }

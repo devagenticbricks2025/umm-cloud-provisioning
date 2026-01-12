@@ -419,8 +419,6 @@ jobs:
           COST:
             Estimated Monthly: \$350-650 USD
             Cost Center: $COST_CENTER
-
-          Workflow: $WORKFLOW_URL
           EOF
           else
             cat > /tmp/message.txt <<EOF
@@ -456,17 +454,18 @@ jobs:
             - Encryption in transit (TLS 1.2)
             - Audit logging (Log Analytics)
             - HIPAA/HITRUST policy applied
-            - Azure Bastion for secure access
+            - Azure Virtual Desktop for secure access
 
           ACCESS INSTRUCTIONS:
-            Access via Azure Bastion only (no direct public access)
+            1. Go to https://client.wvd.microsoft.com
+            2. Or download the AVD client for Windows/Mac
+            3. Sign in with your Azure AD credentials
+            4. Select the PHI Research Desktop
             Connection details sent to: $PI
 
           COST:
             Estimated Monthly: \$4,200-8,500 USD
             Cost Center: $COST_CENTER
-
-          Workflow: $WORKFLOW_URL
           EOF
           fi
 
@@ -534,11 +533,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Update ServiceNow - Mark as Failed
+      - name: Update ServiceNow - Add Failure Note
         env:
           REQUEST_TYPE: ${{ needs.parse-request.outputs.request_type }}
           PROJECT: ${{ needs.parse-request.outputs.project_name }}
-          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SNOW_INSTANCE: ${{ secrets.SERVICENOW_INSTANCE }}
           SNOW_USER: ${{ secrets.SERVICENOW_USER }}
           SNOW_PASS: ${{ secrets.SERVICENOW_PASSWORD }}
@@ -557,13 +555,8 @@ jobs:
           echo "" >> /tmp/message.txt
           echo "The automated provisioning encountered an error." >> /tmp/message.txt
           echo "" >> /tmp/message.txt
-          echo "Please review the GitHub Actions logs for details:" >> /tmp/message.txt
-          echo "$WORKFLOW_URL" >> /tmp/message.txt
-          echo "" >> /tmp/message.txt
           echo "Next Steps:" >> /tmp/message.txt
-          echo "1. Review the error logs in GitHub Actions" >> /tmp/message.txt
-          echo "2. Contact the Cloud Team for assistance" >> /tmp/message.txt
-          echo "3. Re-submit the request once the issue is resolved" >> /tmp/message.txt
+          echo "- Contact the Cloud Team for assistance" >> /tmp/message.txt
 
           echo "Looking up ticket: $TICKET"
 
@@ -585,16 +578,14 @@ jobs:
           # Step 2: Read the failure message and escape it for JSON
           MSG_ESCAPED=$(cat /tmp/message.txt | jq -Rs .)
 
-          # Step 3: Build JSON payload properly
+          # Step 3: Build JSON payload - only add work notes, do NOT close the ticket
           JSON_PAYLOAD=$(jq -n \
-            --arg state "4" \
-            --arg close_notes "Provisioning failed - see work notes for details." \
             --argjson work_notes "$MSG_ESCAPED" \
-            '{state: $state, close_notes: $close_notes, work_notes: $work_notes}')
+            '{work_notes: $work_notes}')
 
           echo "Payload: $JSON_PAYLOAD"
 
-          # Step 4: Update the ticket - Closed Incomplete (state=4) with work notes
+          # Step 4: Update the ticket with work notes only (ticket stays open)
           UPDATE_RESPONSE=$(curl -s -X PATCH \
             -u "$SNOW_USER:$SNOW_PASS" \
             -H "Content-Type: application/json" \
@@ -603,4 +594,4 @@ jobs:
             "https://$SNOW_INSTANCE.service-now.com/api/now/table/sc_req_item/$SYS_ID")
 
           echo "Update response: $UPDATE_RESPONSE"
-          echo "Ticket $TICKET marked as failed."
+          echo "Ticket $TICKET updated with failure note (ticket remains open)."

@@ -184,12 +184,13 @@ output "connection_info" {
     storage_account = module.standard_research[0].storage_account_name
     instructions    = module.standard_research[0].connection_instructions
   } : {
-    type            = "PHI/AVE Secure Environment"
-    bastion_name    = module.phi_ave[0].bastion_name
-    vm_private_ip   = module.phi_ave[0].vm_private_ip
-    admin_username  = module.phi_ave[0].vm_admin_username
-    storage_account = module.phi_ave[0].storage_account_name
-    instructions    = module.phi_ave[0].access_instructions
+    type              = "PHI/AVE Secure Environment"
+    avd_workspace     = module.phi_ave[0].avd_workspace_name
+    avd_host_pool     = module.phi_ave[0].avd_host_pool_name
+    vm_private_ip     = module.phi_ave[0].vm_private_ip
+    admin_username    = module.phi_ave[0].vm_admin_username
+    storage_account   = module.phi_ave[0].storage_account_name
+    instructions      = module.phi_ave[0].access_instructions
   }
 }
 
@@ -199,7 +200,7 @@ output "security_summary" {
     network_isolation     = false
     private_endpoints     = false
     no_public_ips         = false
-    bastion_access_only   = false
+    avd_access_only       = false
     encryption_at_rest    = "Platform-managed key"
     encryption_in_transit = "TLS 1.2"
     audit_logging         = "Basic"
